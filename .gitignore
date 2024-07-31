@@ -1,3 +1,4 @@
 data_*
 __pycache*
 logs
+model

@@ -337,15 +337,16 @@ def create_and_save_lp(filename, n,m,density):
     print(f'Finished creating {filename}')
 
 def generate_dateset_LP(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,valid_files=100,test_files=100):
-    if not os.path.isdir(f"./data_lp_{n}_{m}_{round(p*100,0)}"):
-        os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}")
-        os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/train")
-        os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/valid")
-        os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/test")
+    pillar = f'{round(p*1000,0)}'
+    if not os.path.isdir(f"./data_lp_{n}_{m}_{pillar}"):
+        os.mkdir(f"./data_lp_{n}_{m}_{pillar}")
+        os.mkdir(f"./data_lp_{n}_{m}_{pillar}/train")
+        os.mkdir(f"./data_lp_{n}_{m}_{pillar}/valid")
+        os.mkdir(f"./data_lp_{n}_{m}_{pillar}/test")
 
     # n1 = random.randint(n, nmax)
     # m1 = random.randint(m, mmax)
-    # create_and_save_lp(f"./data_lp_{n}_{m}_{round(p*100,0)}/train/prob_0.pkl",n1,m1,p,)
+    # create_and_save_lp(f"./data_lp_{n}_{m}_{pillar}/train/prob_0.pkl",n1,m1,p,)
     # quit()
 
     pool = multiprocessing.Pool(processes=50) 
@@ -355,21 +356,21 @@ def generate_dateset_LP(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,val
         m1 = random.randint(m, mmax)
         # create_and_save_lp(f"./data_lp_{n}_{m}/train/prob_{i}.pkl",n1,m1,p)
 
-        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{round(p*100,0)}/train/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{pillar}/train/prob_{i}.pkl",n1,m1,p,))
 
 
     for i in range(valid_files):
         n1 = random.randint(n, nmax)
         m1 = random.randint(m, mmax)
         # create_and_save_lp(f"./data_lp_{n}_{m}/valid/prob_{i}.pkl",n1,m1,p)
-        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{round(p*100,0)}/valid/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{pillar}/valid/prob_{i}.pkl",n1,m1,p,))
 
 
     for i in range(test_files):
         n1 = random.randint(n, nmax)
         m1 = random.randint(m, mmax)
         # create_and_save_lp(f"./data_lp_{n}_{m}/test/prob_{i}.pkl",n1,m1,p)
-        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{round(p*100,0)}/test/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_lp, args=(f"./data_lp_{n}_{m}_{pillar}/test/prob_{i}.pkl",n1,m1,p,))
 
 
     pool.close()
@@ -388,30 +389,31 @@ def create_and_save_covering(filename, n,m,density):
     f.close()
 
 def generate_dateset_Covering(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,valid_files=100,test_files=100):
-    if not os.path.isdir(f"./data_covering_{n}_{m}_{round(p*100,0)}"):
-        os.mkdir(f"./data_covering_{n}_{m}_{round(p*100,0)}")
-        os.mkdir(f"./data_covering_{n}_{m}_{round(p*100,0)}/train")
-        os.mkdir(f"./data_covering_{n}_{m}_{round(p*100,0)}/valid")
-        os.mkdir(f"./data_covering_{n}_{m}_{round(p*100,0)}/test")
+    pillar = f'{round(p*1000,0)}'
+    if not os.path.isdir(f"./data_covering_{n}_{m}_{pillar}"):
+        os.mkdir(f"./data_covering_{n}_{m}_{pillar}")
+        os.mkdir(f"./data_covering_{n}_{m}_{pillar}/train")
+        os.mkdir(f"./data_covering_{n}_{m}_{pillar}/valid")
+        os.mkdir(f"./data_covering_{n}_{m}_{pillar}/test")
 
     pool = multiprocessing.Pool(processes=50) 
 
     for i in range(train_files):
         n1 = random.randint(n, nmax)
         m1 = random.randint(m, mmax)
-        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{round(p*100,0)}/train/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{pillar}/train/prob_{i}.pkl",n1,m1,p,))
 
 
     for i in range(valid_files):
         n1 = random.randint(n, nmax)
         m1 = random.randint(m, mmax)
-        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{round(p*100,0)}/valid/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{pillar}/valid/prob_{i}.pkl",n1,m1,p,))
 
 
     for i in range(test_files):
         n1 = random.randint(n, nmax)
         m1 = random.randint(m, mmax)
-        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{round(p*100,0)}/test/prob_{i}.pkl",n1,m1,p,))
+        pool.apply_async(create_and_save_covering, args=(f"./data_covering_{n}_{m}_{pillar}/test/prob_{i}.pkl",n1,m1,p,))
 
 
     pool.close()
