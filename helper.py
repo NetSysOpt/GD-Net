@@ -6,6 +6,8 @@ import random
 import time
 import os
 import multiprocessing
+import numpy as np
+import gurobipy as gp
 
 # TODO::change to sparse
 
@@ -17,17 +19,19 @@ def ext(A):
     # avg coeff, constraint degree
     c_feat = torch.zeros(size=(m,2))
 
-    for i in range(A.shape[0]):
-        for j in range(A.shape[1]):
-            if A[i,j]>0:
-                v_feat[j,0] += A[i,j]
-                v_feat[j,1] += 1
-                c_feat[i,0] += A[i,j]
-                c_feat[i,1] += 1
-        c_feat[i,0] /= c_feat[i,1]
+    # Since we use all 0 start, this part is not needed
+    # for i in range(m):
+    #     for j in range(n):
+    #         print(f'at ({i},{j})')
+    #         if A[i,j]>0:
+    #             v_feat[j,0] += A[i,j]
+    #             v_feat[j,1] += 1
+    #             c_feat[i,0] += A[i,j]
+    #             c_feat[i,1] += 1
+    #     c_feat[i,0] /= c_feat[i,1]
     
-    for j in range(A.shape[1]):
-        v_feat[j,0] /= v_feat[j,1]
+    # for j in range(A.shape[1]):
+    #     v_feat[j,0] /= v_feat[j,1]
     
     return A,v_feat,c_feat
 
@@ -134,6 +138,68 @@ def create_pyscipopt(A, mode='lp'):
     return res,dual,objv,model.getTotalTime()
 
 
+def create_grb(A, mode='lp'):
+    n = A.shape[1]
+    m = A.shape[0]
+
+    alist  = A.tolist()
+    varis = []
+    cons = []
+    model = gp.Model("packing")
+    model.Params.Threads = 2
+    for i in range(n):
+        varis.append(model.addVar(vtype=gp.GRB.CONTINUOUS,name=f"x_{i}"))
+
+    if mode == 'lp':
+        for i in range(m):
+            # tmp_expr = scp.Expr()
+            tmp_coeff = []
+            tmp_var = []
+            for j in range(n):
+                if alist[i][j]>0:
+                    # tmp_expr += A[i,j]*varis[j]
+                    tmp_coeff.append(alist[i][j])
+                    tmp_var.append(varis[j])
+            
+            
+            # cons.append(model.addCons(tmp_expr <= 1))
+            cons.append(model.addConstr(gp.quicksum(tmp_coeff[i] * tmp_var[i] for i in range(len(tmp_coeff)))<=1.0))
+    else:
+        for i in range(m):
+            # tmp_expr = scp.Expr()
+            tmp_coeff = []
+            tmp_var = []
+            for j in range(n):
+                if alist[i][j]>0:
+                    # tmp_expr += A[i,j]*varis[j]
+                    tmp_coeff.append(alist[i][j])
+                    tmp_var.append(varis[j])
+            
+            
+            # cons.append(model.addCons(tmp_expr <= 1))
+            cons.append(model.addConstr(gp.quicksum(tmp_coeff[i] * tmp_var[i] for i in range(len(tmp_coeff)))>=1.0))
+
+    obj = gp.LinExpr()
+    for j in range(n):
+        obj += varis[j]
+    if mode == 'lp':
+        model.setObjective(obj, gp.GRB.MAXIMIZE)
+    else:
+        model.setObjective(obj, gp.GRB.MINIMIZE)
+
+    print()
+    model.optimize()
+    # model.writeProblem('checker.lp')
+    # quit()
+    print('Solve Finished')
+    res = []
+    for v in varis:
+        res.append(v.X)
+    dual = []
+    for c in cons:
+        dual.append(c.Pi)
+    objv = model.ObjVal
+    return res,dual,objv,model.Runtime
 
 def create_pyscipopt_with_x(A,x):
     n = A.shape[1]
@@ -244,24 +310,31 @@ def generate_dateset_MIS(n=100,density=0.9,train_files=1000,valid_files=100,test
             
 
 def gen_gen_lp(n,m,density):
-    A = torch.zeros(size=(m,n))
-    for i in range(m):
-        for j in range(n):
-            if random.random()<=density:
-                # gen num
-                A[i,j] = random.random()+1.0
-            else:
-                A[i,j] = 0.0
+    A = np.zeros((m,n))
+    density_map = np.random.rand(m,n)
+    val_map = np.random.rand(m,n)
+    A = np.where(density_map <= density, val_map, 0.0)
+    # for i in range(m):
+    #     for j in range(n):
+    #         if random.random()<=density:
+    #             # gen num
+    #             A[i,j] = random.random()+1.0
+    #         # else:
+    #         #     A[i,j] = 0.0
+    A = torch.as_tensor(A)
     return A
 
 def create_and_save_lp(filename, n,m,density):
     A = gen_gen_lp(n,m,density)
+    print(f'Generating {filename}')
     A,v,c = ext(A)
-    sol,dual,obj,sol_time = create_pyscipopt(A)
+    # sol,dual,obj,sol_time = create_pyscipopt(A)
+    sol,dual,obj,sol_time = create_grb(A)
     to_pack = [A,v,c,sol,dual,obj,sol_time]
     f = gzip.open(filename,'wb')
     pickle.dump(to_pack,f)
     f.close()
+    print(f'Finished creating {filename}')
 
 def generate_dateset_LP(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,valid_files=100,test_files=100):
     if not os.path.isdir(f"./data_lp_{n}_{m}_{round(p*100,0)}"):
@@ -269,6 +342,11 @@ def generate_dateset_LP(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,val
         os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/train")
         os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/valid")
         os.mkdir(f"./data_lp_{n}_{m}_{round(p*100,0)}/test")
+
+    # n1 = random.randint(n, nmax)
+    # m1 = random.randint(m, mmax)
+    # create_and_save_lp(f"./data_lp_{n}_{m}_{round(p*100,0)}/train/prob_0.pkl",n1,m1,p,)
+    # quit()
 
     pool = multiprocessing.Pool(processes=50) 
 
@@ -302,7 +380,8 @@ def generate_dateset_LP(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=1000,val
 def create_and_save_covering(filename, n,m,density):
     A = gen_gen_lp(n,m,density)
     A,v,c = ext(A)
-    sol,dual,obj,time = create_pyscipopt(A,mode='covering')
+    # sol,dual,obj,time = create_pyscipopt(A,mode='covering')
+    sol,dual,obj,time = create_grb(A,mode='covering')
     to_pack = [A,v,c,sol,dual,obj,time]
     f = gzip.open(filename,'wb')
     pickle.dump(to_pack,f)

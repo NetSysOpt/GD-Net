@@ -15,3 +15,5 @@ tf = 0
 vf = 0
 tfs = 100
 # generate_dateset_Covering(n=600,nmax=900,m=600,mmax=900,p=0.6,train_files=tf,valid_files=vf,test_files=tfs)
+generate_dateset_Covering(n=10000,nmax=12000,m=10000,mmax=12000,p=0.1,train_files=tf,valid_files=vf,test_files=tfs)
+generate_dateset_Covering(n=10000,nmax=12000,m=10000,mmax=12000,p=0.2,train_files=tf,valid_files=vf,test_files=tfs)

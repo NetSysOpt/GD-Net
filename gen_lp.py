@@ -14,5 +14,6 @@ tfs = 100
 # generate_dateset_LP(n=500,nmax=800,m=500,mmax=800,p=0.6,train_files=tf,valid_files=vf,test_files=tfs)
 # generate_dateset_LP(n=600,nmax=900,m=600,mmax=900,p=0.6,train_files=tf,valid_files=vf,test_files=tfs)
 # generate_dateset_LP(n=1000,nmax=1200,m=1000,mmax=1200,p=0.6,train_files=tf,valid_files=vf,test_files=tfs)
-generate_dateset_LP(n=1500,nmax=1700,m=1500,mmax=1700,p=0.6,train_files=0,valid_files=0,test_files=tfs)
+# generate_dateset_LP(n=1500,nmax=1700,m=1500,mmax=1700,p=0.6,train_files=0,valid_files=0,test_files=tfs)
+generate_dateset_LP(n=10000,nmax=11000,m=10000,mmax=11000,p=0.1,train_files=tf,valid_files=vf,test_files=tfs)
 

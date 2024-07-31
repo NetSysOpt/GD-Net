@@ -29,6 +29,7 @@ ident = "IS_50"
 # ident = "lp_75_75_60.0"
 # ident = "lp_500_500_60.0"
 ident = "lp_1000_1000_60.0"
+ident = "lp_10000_10000_10.0"
 eps=0.2
 
 
@@ -45,7 +46,7 @@ lrate = 1e-3
 conts=True
 
 lrate = 1e-4
-conts=True
+conts=False
 
 # lrate = 1e-6
 # conts=True
@@ -70,7 +71,9 @@ parm_num = count_parameters(mdl)
 print(f'Number of parameters:: {parm_num}')
 # mdl = framework_model3(2,2,64,4)
 last_epoch=0
-if os.path.exists(f"./model/best_model3_{ident}{other}.mdl") and conts:
+if not os.path.isdir('./model'):
+    os.mkdir('./model')
+elif os.path.exists(f"./model/best_model3_{ident}{other}.mdl") and conts:
     checkpoint = torch.load(f"./model/best_model3_{ident}{other}.mdl")
     mdl.load_state_dict(checkpoint['model'])
     if 'nepoch' in checkpoint:
@@ -84,6 +87,8 @@ optimizer = torch.optim.Adam(mdl.parameters(), lr=lrate)
 
 max_epoch = 10000
 
+if not os.path.isdir('./logs'):
+    os.mkdir('./logs')
 flog = open(f'./logs/train_log_fixed_mu_{ident}{other}.log','w')
 
 
@@ -118,8 +123,8 @@ for epoch in range(last_epoch, max_epoch):
             m = A.shape[0]
             mu = 1/eps * torch.log(m*amx/eps)
 
-            x = torch.as_tensor(v,dtype=torch.float32)
-            y = torch.as_tensor(c,dtype=torch.float32)
+            # x = torch.as_tensor(v,dtype=torch.float32)
+            # y = torch.as_tensor(c,dtype=torch.float32)
             x_gt = torch.as_tensor(sol,dtype=torch.float32)
             y_gt = torch.as_tensor(dual,dtype=torch.float32)
             f.close()
