@@ -43,7 +43,7 @@ class y_update_model3(torch.nn.Module):
         
     def forward(self,A,x,mu):
 
-        eye = torch.ones(size=(A.shape[0],self.feat_size))
+        eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
         # compute AX
         x = torch.matmul(A,x) - eye
         x = self.el(mu * x) + eye
@@ -118,7 +118,7 @@ class x_update_model3(torch.nn.Module):
         
         # compute AX
         ATy = torch.matmul(torch.transpose(A,0,1),y) # n x f_y
-        eye = torch.ones(size=ATy.shape)
+        eye = torch.ones(size=ATy.shape).to(ATy.device)
         ATy = ATy - eye
 
         f = None

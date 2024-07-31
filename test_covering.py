@@ -31,39 +31,72 @@ exps = []
 exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
 
 
-def solve_grb(A,x,y):
+# 0 psimplex
+# 1 dsimplex
+# 2 barrier
+# def establish_grb(A,nthreads=8,method=-1,timelim=100.0):
+def establish_grb(A,nthreads=1,method=0,timelim=100.0):
     print('Building model')
     n = A.shape[1]
     m = A.shape[0]
     model = gp.Model("lp1")
-    model.Params.Presolve = 1
-    model.Params.Threads = 2
-    
+    model.Params.Threads = nthreads
+    model.Params.Method = method
+    # model.Params.TimeLimit = 100.0
+    model.Params.TimeLimit = timelim
     vs = model.addVars(n, vtype=gp.GRB.CONTINUOUS)
     model.setObjective(vs.sum(), gp.GRB.MINIMIZE)
-    
     npy = A.numpy()
     model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) >= 1.0) for i in range(m))
-    
-    model.optimize()
-    ori_obj = model.ObjVal
-    ori_time = model.Runtime
+    print('Finished building')
+    return model
+
+def solve_ws(A,x,y,model):
     model.reset()
+    model.Params.Presolve = 1
     model.Params.LPWarmStart = 2
+    model.Params.LogToConsole = 0
     for i,v in enumerate(vs):
         vs[v].PStart = x[i]
-    print('Finished building')
     model.optimize()
     new_obj = model.ObjVal
     new_time = model.Runtime
-    print(f'ori obj: {ori_obj}')
-    print(f'ori time: {ori_time}')
     print(f'ws obj: {new_obj}')
     print(f'ws time: {new_time}')
     quit()
     
     
+def solve_grb(A,x,y,model):
+    model.reset()
+    model.optimize()
+    ori_obj = model.ObjVal
+    ori_time = model.Runtime
+    print(f'ori obj: {ori_obj}')
+    print(f'ori time: {ori_time}')
+    return ori_obj, ori_time
+    
 
+def solve_search(A,x,y,model,eps=20.0):
+    model.reset()
+    aux_vars = []
+    for i,v in enumerate(vs):
+        vs[v].PStart = x[i]
+        tmp_var = model.addVar(vtype=gp.GRB.CONTINUOUS)
+        aux_vars.append(tmp_var)
+        model.addConstr(vs[v]-x[i]<=tmp_var)
+        model.addConstr(x[i]-vs[v]<=tmp_var)
+    model.addConstr(gp.quicksum(aux_vars)<=eps)
+    
+    print('Finished building')
+    model.optimize()
+    new_obj = model.ObjVal
+    new_time = model.Runtime
+    # print(f'ori obj: {ori_obj}')
+    # print(f'ori time: {ori_time}')
+    print(f'search obj: {new_obj}')
+    print(f'search time: {new_time}')
+    quit()
+    
 
 
 
@@ -316,12 +349,16 @@ for ele in exps:
         avg_ratio += (obj2-obj)/obj
         avg_gap += obj2-obj
         
-        solve_grb(A,x,y)
+        model = establish_grb(A,timelim=inf_time+feas_time)
+        grb_obj, grb_time = solve_grb(A,x,y,model)
+        model.Params.TimeLimit = 100.0
+        grb_100_obj, _ = solve_grb(A,x,y,model)
+        print(grb_obj, grb_time)
         
         
-        print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time} ')
+        print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time}\n  :::GRB:{grb_obj},{grb_100_obj}')
         # print(x)
-        st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time}\n'
+        st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   :::TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time} :::GRB:{grb_obj},{grb_100_obj}\n'
         flog.write(st)
         flog.flush()
         

@@ -27,8 +27,9 @@ ident = "IS_500"
 ident = "IS_1000"
 ident = "IS_50"
 # ident = "lp_75_75_60.0"
-# ident = "lp_500_500_60.0"
-ident = "lp_1000_1000_60.0"
+ident = "lp_50_50_600.0"
+ident = "lp_500_500_600.0"
+ident = "lp_1000_1000_600.0"
 ident = "lp_10000_10000_5.0"
 eps=0.2
 
@@ -65,7 +66,7 @@ flist_train = os.listdir(f'./{idf}/train')
 flist_valid = os.listdir(f'./{idf}/valid')[:100]
 
 best_loss = 1e+20
-mdl = framework_model1dim(4,64,nfeat,model_type)
+mdl = framework_model1dim(4,64,nfeat,model_type).to(device)
 parm_num = count_parameters(mdl)
 
 print(f'Number of parameters:: {parm_num}')
@@ -102,9 +103,9 @@ for epoch in range(last_epoch, max_epoch):
             f = gzip.open(f'./data_{ident}/train/{fnm}','rb')
             # A,v,c,sol,dual,obj = pickle.load(f)
             tar = pickle.load(f)
-            A = tar[0]
-            v = tar[1]
-            c = tar[2]
+            A = tar[0].to(device)
+            # v = tar[1]
+            # c = tar[2]
             sol = tar[3]
             dual = tar[4]
             obj = tar[5]
@@ -113,7 +114,7 @@ for epoch in range(last_epoch, max_epoch):
                 cost = torch.as_tensor(tar[7])
                 minA = torch.as_tensor(tar[8])
 
-            A = torch.as_tensor(A,dtype=torch.float32)
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
             amx = None
             if A.is_sparse:
@@ -125,16 +126,16 @@ for epoch in range(last_epoch, max_epoch):
 
             # x = torch.as_tensor(v,dtype=torch.float32)
             # y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             #  apply gradient 
             optimizer.zero_grad()
             n = A.shape[1]
 
             # x = torch.ones((n,1))
-            x = torch.zeros((n,1))
-            y = torch.zeros((m,1))
+            x = torch.zeros((n,1)).to(device)
+            y = torch.zeros((m,1)).to(device)
             x,y = mdl(A,x,y,mu)
 
             # check if need to restore val
@@ -190,9 +191,9 @@ for epoch in range(last_epoch, max_epoch):
             # A,v,c,sol,dual,obj = pickle.load(f)
 
             tar = pickle.load(f)
-            A = tar[0]
-            v = tar[1]
-            c = tar[2]
+            A = tar[0].to(device)
+            # v = tar[1]
+            # c = tar[2]
             sol = tar[3]
             dual = tar[4]
             obj = tar[5]
@@ -202,7 +203,7 @@ for epoch in range(last_epoch, max_epoch):
                 cost = tar[7]
                 minA = tar[8]
 
-            A = torch.as_tensor(A,dtype=torch.float32)
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
             amx = None
             if A.is_sparse:
@@ -212,17 +213,17 @@ for epoch in range(last_epoch, max_epoch):
             m = A.shape[0]
             mu = 1/eps * torch.log(m*amx/eps)
 
-            x = torch.as_tensor(v,dtype=torch.float32)
-            y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            # x = torch.as_tensor(v,dtype=torch.float32)
+            # y = torch.as_tensor(c,dtype=torch.float32)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             #  obtain loss
 
             n = A.shape[1]
             # x = torch.ones((n,1))
-            x = torch.zeros((n,1))
-            y = torch.zeros((m,1))
+            x = torch.zeros((n,1)).to(device)
+            y = torch.zeros((m,1)).to(device)
 
             x_gt = x_gt.unsqueeze(-1)
 
