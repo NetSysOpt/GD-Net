@@ -22,6 +22,7 @@ ident = "LSD_50"
 ident = "LSD_500"
 ident = "covering_500_500_60.0"
 ident = "covering_75_75_60.0"
+ident = "covering_10000_10000_5.0"
 # ident = "LSD_1000"
 idf = f"data_{ident}"
 print("training",ident)
@@ -46,10 +47,10 @@ flist_valid = os.listdir(f'./{idf}/valid')[:100]
 
 best_loss = 1e+20
 # mdl = framework_model1dim(4,64,nfeat)
-mdl = framework_model1dim_covering(4,64,nfeat)
+mdl = framework_model1dim_covering(4,64,nfeat).to(device)
 if 'dchannel' == model_type:
     print('!!!!!!!!!!USING Dchannel model, method 2')
-    mdl = framework_model1dim_covering(4,64,nfeat,mode=model_type)
+    mdl = framework_model1dim_covering(4,64,nfeat,mode=model_type).to(device)
     
 parm_num = count_parameters(mdl)
 
@@ -58,6 +59,8 @@ print(f'Number of parameters:: {parm_num}')
 
 # mdl = framework_model3(2,2,64,4)
 last_epoch=0
+if not os.path.isdir('./model'):
+    os.mkdir('./model')
 if os.path.exists(f"./model/best_covering_{ident}{other}.mdl"):
     checkpoint = torch.load(f"./model/best_covering_{ident}{other}.mdl")
     mdl.load_state_dict(checkpoint['model'])
@@ -72,9 +75,15 @@ optimizer = torch.optim.Adam(mdl.parameters(), lr=lr1)
 
 max_epoch = 10000
 
+if not os.path.isdir('./logs'):
+    os.mkdir('./logs')
 flog = open(f'./logs/train_log_covering_{ident}{other}.log','w')
 
 eps=0.2
+
+files_map = {}
+valid_map = {}
+
 
 for epoch in range(last_epoch, max_epoch):
     avg_loss=[0,0,0]
@@ -83,31 +92,36 @@ for epoch in range(last_epoch, max_epoch):
         for fnm in flist_train:
             # train
             #  reading
+            # time1 = time.time()
+            # if fnm not in files_map:
             f = gzip.open(f'./data_{ident}/train/{fnm}','rb')
+            # files_map[fnm] = pickle.load(f)
             tar = pickle.load(f)
+            # tar = files_map[fnm]
+            # print(f'{time.time()-time1}s')
             A = tar[0]
             v = tar[1]
             c = tar[2]
             sol = tar[3]
             dual = tar[4]
             obj = tar[5]
-            A = torch.as_tensor(A,dtype=torch.float32)
-            amx = torch.max(A.to_dense())
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
+            amx = torch.max(A.to_dense()).to(device)
             m = A.shape[0]
-            mu = 1/eps * torch.log(m*amx/eps)
+            mu = 1/eps * torch.log(m*amx/eps).to(device)
 
-            x = torch.as_tensor(v,dtype=torch.float32)
-            y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            # x = torch.as_tensor(v,dtype=torch.float32).to(device)
+            # y = torch.as_tensor(c,dtype=torch.float32).to(device)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             #  apply gradient 
             optimizer.zero_grad()
             n = A.shape[1]
 
             # x = torch.ones((n,1))
-            x = torch.ones((n,1))
-            y = torch.zeros((m,1))
+            x = torch.ones((n,1)).to(device)
+            y = torch.zeros((m,1)).to(device)
             x,y = mdl(A,x,y,mu)
 
             
@@ -146,33 +160,38 @@ for epoch in range(last_epoch, max_epoch):
         for fnm in flist_valid:
             # valid
             #  reading
+            # if fnm not in valid_map:
             f = gzip.open(f'./data_{ident}/valid/{fnm}','rb')
+            # valid_map[fnm] = pickle.load(f)
+                
             # A,v,c,sol,dual,obj = pickle.load(f)
             tar = pickle.load(f)
+            # tar = files_map[fnm]
+            
             A = tar[0]
             v = tar[1]
             c = tar[2]
             sol = tar[3]
             dual = tar[4]
             obj = tar[5]
-            A = torch.as_tensor(A,dtype=torch.float32)
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
             # amx = torch.max(A)
-            amx = torch.max(A.to_dense())
+            amx = torch.max(A.to_dense()).to(device)
             m = A.shape[0]
-            mu = 1/eps * torch.log(m*amx/eps)
+            mu = 1/eps * torch.log(m*amx/eps).to(device)
 
-            x = torch.as_tensor(v,dtype=torch.float32)
-            y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            # x = torch.as_tensor(v,dtype=torch.float32).to(device)
+            # y = torch.as_tensor(c,dtype=torch.float32).to(device)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             #  obtain loss
 
             n = A.shape[1]
             # x = torch.ones((n,1))
-            x = torch.ones((n,1))
-            y = torch.zeros((m,1))
+            x = torch.ones((n,1)).to(device)
+            y = torch.zeros((m,1)).to(device)
 
 
             x_gt = x_gt.unsqueeze(-1)

@@ -6,6 +6,7 @@ import os
 import random
 from helper import create_pyscipopt_with_x
 import time
+import gurobipy as gp
 exps = []
 
 # exps.append(["covering_15_15_60.0","covering_15_15_60.0","15 60 test"])
@@ -25,8 +26,44 @@ exps = []
 # generalization
 # exps.append(["LSD_1100","LSD_1000","dchannel",5])
 # exps.append(["covering_1100_1100_60.0","covering_1000_1000_60.0","dchannel",5])
-exps.append(["LSD_1500","LSD_1000","dchannel",5])
-exps.append(["covering_1500_1500_60.0","covering_1000_1000_60.0","dchannel",5])
+# exps.append(["LSD_1500","LSD_1000","dchannel",5])
+# exps.append(["covering_1500_1500_60.0","covering_1000_1000_60.0","dchannel",5])
+exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
+
+
+def solve_grb(A,x,y):
+    print('Building model')
+    n = A.shape[1]
+    m = A.shape[0]
+    model = gp.Model("lp1")
+    model.Params.Presolve = 1
+    model.Params.Threads = 2
+    
+    vs = model.addVars(n, vtype=gp.GRB.CONTINUOUS)
+    model.setObjective(vs.sum(), gp.GRB.MINIMIZE)
+    
+    npy = A.numpy()
+    model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) >= 1.0) for i in range(m))
+    
+    model.optimize()
+    ori_obj = model.ObjVal
+    ori_time = model.Runtime
+    model.reset()
+    model.Params.LPWarmStart = 2
+    for i,v in enumerate(vs):
+        vs[v].PStart = x[i]
+    print('Finished building')
+    model.optimize()
+    new_obj = model.ObjVal
+    new_time = model.Runtime
+    print(f'ori obj: {ori_obj}')
+    print(f'ori time: {ori_time}')
+    print(f'ws obj: {new_obj}')
+    print(f'ws time: {new_time}')
+    quit()
+    
+    
+
 
 
 
@@ -278,6 +315,10 @@ for ele in exps:
 
         avg_ratio += (obj2-obj)/obj
         avg_gap += obj2-obj
+        
+        solve_grb(A,x,y)
+        
+        
         print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time} ')
         # print(x)
         st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time}\n'

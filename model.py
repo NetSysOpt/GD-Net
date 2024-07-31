@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import math
+import time
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -620,8 +621,13 @@ class update_cycle_model3_covering(torch.nn.Module):
     def forward(self,A,x,y,mu):
 
         # compute AX
+        # time1 = time.time()
         y_new = self.y_up(A,x,mu)
+        # ytime = time.time()-time1
+        # time1 = time.time()
         x_new = self.x_up(A,x,y_new)
+        # xtime = time.time()-time1
+        # print(f'y: {ytime}   x: {xtime}')
 
         # if self.feat_size > 1:
         #     x_new = self.out(x_new)
@@ -638,13 +644,14 @@ class y_update_model3_covering(torch.nn.Module):
         super(y_update_model3_covering,self).__init__()
         self.el = nn.ELU()
         self.feat_size = feat_size
+        self.eye = None
         
     def forward(self,A,x,mu):
-
-        eye = torch.ones(size=(A.shape[0],self.feat_size))
+        
+        self.eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
         # compute AX
-        x =  eye - torch.matmul(A,x)
-        x = self.el(mu * x) + eye
+        x =  self.eye - torch.matmul(A,x)
+        x = self.el(mu * x) + self.eye
         
         return x
 
@@ -659,7 +666,7 @@ class x_update_dchannel_channel(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape)
+        eye = torch.ones(size=ATy.shape).to(ATy.device)
         fout = torch.mul(self.act(ATy*self.t2+self.t3) + self.act(ATy*self.t2-self.t3) - eye,self.t1)
         return torch.mul(fout,x)
 
@@ -745,7 +752,7 @@ class x_update_model3_covering(torch.nn.Module):
         
         # compute AX
         ATy = torch.matmul(torch.transpose(A,0,1),y) # n x f_y
-        eye = torch.ones(size=ATy.shape)
+        eye = torch.ones(size=ATy.shape).to(A.device)
         ATy = eye - ATy  
 
         f = None
