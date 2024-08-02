@@ -6,7 +6,7 @@ import os
 import random
 from alive_progress import alive_bar
 import sys
-sys.path.insert(1, '/data3/lxyang/git/lq/packingalign/gcns/models')
+sys.path.insert(1, './gcns/models')
 from gcnconv import GCNConv
 from hetero_gnn import *
 
@@ -54,7 +54,6 @@ ident = "CA_50_50"
 
 ident = 'covering_15_15_60.0'
 # ident = 'covering_75_75_60.0'
-# ident = 'covering_500_500_60.0'
 ident = 'covering_1000_1000_60.0'
 ident = "LSD_50"
 ident = "LSD_500"
@@ -63,6 +62,8 @@ ident = "LSD_1000"
 
 ident = "IS_1000"
 ident = "lp_1000_1000_60.0"
+ident = 'covering_500_500_600.0'
+ident = 'lp_500_500_600.0'
 idf = f"data_{ident}"
 
 flist_train = os.listdir(f'./{idf}/train')
@@ -82,7 +83,7 @@ if os.path.exists(f"./model/best_gcnconv_{ident}.mdl"):
     print('Model Loaded')
 
 loss_func = torch.nn.MSELoss()
-optimizer = torch.optim.Adam(mdl.parameters(), lr=1e-3)
+optimizer = torch.optim.Adam(mdl.parameters(), lr=1e-4)
 
 max_epoch = 10000
 
@@ -149,8 +150,8 @@ def to_full_adj_nonsq(A,x,y,c=None):
         A = A.to_sparse()
         
         
-    aind = A.indices()
-    aval = A.values()
+    aind = A.indices().to(device)
+    aval = A.values().to(device)
     
     # need to add objective
     obj_coef = [[],[]]
@@ -159,8 +160,8 @@ def to_full_adj_nonsq(A,x,y,c=None):
         obj_coef[0].append(m)
         obj_coef[1].append(i)
         obj_vals.append(c[i])
-    obj_coef = torch.as_tensor(obj_coef)
-    obj_vals = torch.as_tensor(obj_vals)
+    obj_coef = torch.as_tensor(obj_coef).to(device)
+    obj_vals = torch.as_tensor(obj_vals).to(device)
     aind = torch.cat((aind,obj_coef),dim = 1 )
     aval = torch.cat((aval,obj_vals),dim = -1)
             
@@ -186,13 +187,13 @@ for epoch in range(last_epoch, max_epoch):
             #  reading
             f = gzip.open(f'./data_{ident}/train/{fnm}','rb')
             tar = pickle.load(f)
-            A=tar[0]
-            v=tar[1]
-            c=tar[2]
+            A=tar[0].to(device)
+            v=tar[1].to(device)
+            c=tar[2].to(device)
             sol=tar[3]
             dual=tar[4]
-            obj=tar[5] 
-            A = torch.as_tensor(A,dtype=torch.float32)
+            obj=tar[5]
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
             cost = None
 
 
@@ -234,7 +235,7 @@ for epoch in range(last_epoch, max_epoch):
             x,_ = mdl(data)
             x = x[:,-1].unsqueeze(-1)
             
-            x_gt = x_gt.unsqueeze(-1)
+            x_gt = x_gt.unsqueeze(-1).to(device)
             loss_x = loss_func(x, x_gt)
             avg_loss[0] += loss_x.item()
             print(loss_x.item(),torch.sum(x).item())
@@ -264,13 +265,13 @@ for epoch in range(last_epoch, max_epoch):
             f = gzip.open(f'./data_{ident}/valid/{fnm}','rb')
             # A,v,c,sol,dual,obj = pickle.load(f)
             tar = pickle.load(f)
-            A=tar[0]
-            v=tar[1]
-            c=tar[2]
+            A=tar[0].to(device)
+            v=tar[1].to(device)
+            c=tar[2].to(device)
             sol=tar[3]
             dual=tar[4]
             obj=tar[5] 
-            A = torch.as_tensor(A,dtype=torch.float32)
+            A = torch.as_tensor(A,dtype=torch.float32).to(device)
             cost = None
 
 
@@ -283,8 +284,8 @@ for epoch in range(last_epoch, max_epoch):
 
             m = A.shape[0]
 
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             
             n = A.shape[1]

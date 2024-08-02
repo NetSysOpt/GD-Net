@@ -23,11 +23,14 @@ ident = "LSD_500"
 ident = "covering_500_500_60.0"
 ident = "covering_75_75_60.0"
 ident = "covering_10000_10000_5.0"
+ident = "covering_1000_1000_600.0"
+ident = "covering_5000_5000_20.0"
+ident = "covering_500_500_600.0"
 # ident = "LSD_1000"
 idf = f"data_{ident}"
 print("training",ident)
 
-lr1 = 1e-3
+lr1 = 1e-6
 
 
 

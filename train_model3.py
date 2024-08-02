@@ -29,8 +29,11 @@ ident = "IS_50"
 # ident = "lp_75_75_60.0"
 ident = "lp_50_50_600.0"
 ident = "lp_500_500_600.0"
-ident = "lp_1000_1000_600.0"
 ident = "lp_10000_10000_5.0"
+ident = "IS_10000"
+ident = "lp_1000_1000_600.0"
+ident = "lp_5000_5000_20.0"
+ident = "lp_500_500_600.0"
 eps=0.2
 
 
@@ -44,13 +47,13 @@ model_type = 'dchannel'
 
 
 lrate = 1e-3
-conts=True
+conts=False
 
 lrate = 1e-4
 conts=False
 
-# lrate = 1e-6
-# conts=True
+lrate = 1e-5
+conts=True
 
 idf = f"data_{ident}"
 

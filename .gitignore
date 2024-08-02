@@ -3,3 +3,7 @@ __pycache*
 logs
 model
 zips
+GEN/dataset
+GEN/tmp_csv
+ins
+*logs

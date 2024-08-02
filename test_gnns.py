@@ -8,7 +8,7 @@ import time
 from helper import create_pyscipopt_with_x
 
 import sys
-sys.path.insert(1, '/data3/lxyang/git/lq/packingalign/gcns/models')
+sys.path.insert(1, './gcns/models')
 from gcnconv import GCNConv
 from hetero_gnn import *
 
@@ -35,14 +35,14 @@ def to_full_adj_nonsq(A,x,y,c=None):
         obj_coef[0].append(m)
         obj_coef[1].append(i)
         obj_vals.append(c[i])
-    obj_coef = torch.as_tensor(obj_coef)
-    obj_vals = torch.as_tensor(obj_vals)
+    obj_coef = torch.as_tensor(obj_coef).to(device)
+    obj_vals = torch.as_tensor(obj_vals).to(device)
     aind = torch.cat((aind,obj_coef),dim = 1 )
     aval = torch.cat((aval,obj_vals),dim = -1)
             
-    resA = torch.sparse_coo_tensor(aind,aval,size=[m,n]).coalesce()
+    resA = torch.sparse_coo_tensor(aind,aval,size=[m,n]).coalesce().to(device)
     
-    ob = torch.tensor([1.0,1.0])
+    ob = torch.tensor([1.0,1.0]).to(device)
     ob = ob.unsqueeze(0)
     x = [torch.cat((y,ob),dim=0),x]
 
@@ -120,7 +120,10 @@ eps=0.2
 # exps.append(["LSD_500","LSD_500","dchannel",5])
 # exps.append(["LSD_1000","LSD_1000","dchannel",5])
 # exps.append(["lp_1000_1000_60.0","lp_1000_1000_60.0","dchannel",5])
-exps.append(["lp_500_500","lp_500_500_60.0","dchannel",5])
+# exps.append(["covering_500_500_600.0","covering_50_50_600.0","dchannel",5])
+# exps.append(["covering_500_500_600.0","covering_1000_1000_600.0","dchannel",5])
+exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
+exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
 # exps.append(["IS_1000","IS_1000","IS test"])
 
 records = []
@@ -385,14 +388,14 @@ for ele in exps:
         f = gzip.open(f'./data_{ident}/test/{fnm}','rb')
         # A,v,c,sol,dual,obj = pickle.load(f)
         tar = pickle.load(f)
-        A = tar[0]
-        v = tar[1]
-        c = tar[2]
+        A = tar[0].to(device)
+        v = tar[1].to(device)
+        c = tar[2].to(device)
         sol = tar[3]
         dual = tar[4]
         obj = tar[5]
         sol_time = tar[6]
-        A = torch.as_tensor(A,dtype=torch.float32)
+        A = torch.as_tensor(A,dtype=torch.float32).to(device)
         cost = None
 
 
@@ -404,8 +407,8 @@ for ele in exps:
 
         m = A.shape[0]
 
-        x_gt = torch.as_tensor(sol,dtype=torch.float32)
-        y_gt = torch.as_tensor(dual,dtype=torch.float32)
+        x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+        y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
         f.close()
     
         #  obtain loss
@@ -459,7 +462,7 @@ for ele in exps:
         
         # for i in range(ts2.shape[0]):
         #     print(ts1[i],ts2[i])
-        x_res = x_res.squeeze(-1)
+        x_res = x_res.squeeze(-1).to(device)
         # if len(tar)>=9:
         #     x_res = x_res/minA
         #     for i in range(x_res.shape[0]):

@@ -24,9 +24,11 @@ def establish_grb(A,nthreads=1,method=0,timelim=100.0):
     # model.Params.TimeLimit = 100.0
     model.Params.TimeLimit = timelim
     vs = model.addVars(n, vtype=gp.GRB.CONTINUOUS)
-    model.setObjective(vs.sum(), gp.GRB.MINIMIZE)
+    model.setObjective(vs.sum(), gp.GRB.MAXIMIZE)
+    if A.is_sparse:
+        A=A.to_dense()
     npy = A.numpy()
-    model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) >= 1.0) for i in range(m))
+    model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) <= 1.0) for i in range(m))
     model.update()
     print('Finished building')
     return model
@@ -62,7 +64,7 @@ def solve_grb(A,x,y,model):
 def solve_grb_bestobj(A,x,y,model,obj):
     def cbk(model,where):
         if where == gp.GRB.Callback.SIMPLEX:
-            if model.cbGet(gp.GRB.Callback.SPX_OBJVAL)<obj:
+            if model.cbGet(gp.GRB.Callback.SPX_OBJVAL)>obj:
                 model.terminate()
     model.reset()
     model.optimize(cbk)
@@ -161,7 +163,12 @@ eps=0.2
 # exps.append(["lp_1000_1000_60.0","lp_1500_1500_60.0","dchannel",5])
 # exps.append(["lp_50_50_600.0","lp_50_50_600.0","dchannel",5])
 # exps.append(["lp_500_500_600.0","lp_500_500_600.0","dchannel",5])
-exps.append(["lp_1000_1000_600.0","lp_1000_1000_600.0","dchannel",5])
+# exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
+# exps.append(["IS_10000","IS_10000","dchannel",5])
+# exps.append(["lp_1000_1000_600.0","lp_1000_1000_600.0","dchannel",5])
+# exps.append(["lp_5000_5000_20.0","lp_5000_5000_20.0","dchannel",5])
+exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
+exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
 
 
 st_rec=[]

@@ -28,7 +28,11 @@ exps = []
 # exps.append(["covering_1100_1100_60.0","covering_1000_1000_60.0","dchannel",5])
 # exps.append(["LSD_1500","LSD_1000","dchannel",5])
 # exps.append(["covering_1500_1500_60.0","covering_1000_1000_60.0","dchannel",5])
-exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
+# exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
+# exps.append(["covering_1000_1000_600.0","covering_1000_1000_600.0","dchannel",5])
+# exps.append(["covering_5000_5000_20.0","covering_5000_5000_20.0","dchannel",5])
+exps.append(["covering_50_50_600.0","covering_500_500_600.0","dchannel",5])
+exps.append(["covering_1000_1000_600.0","covering_500_500_600.0","dchannel",5])
 
 
 # 0 psimplex
