@@ -3,6 +3,11 @@ import json
 import gzip
 
 mode = 'covering_covering_5000_5000_20.0'
+mode = 'covering_covering_10000_10000_5.0'
+mode = 'model3_lp_1000_1000_600.0x0'
+mode = 'model3_lp_1000_1000_600.0x0'
+mode = 'model3_lp_10000_10000_5.0x0'
+mode = 'model3_lp_5000_5000_20.0x0'
 
 tar = f'../logs/test_log_{mode}dchannel_feat5.log'
 
@@ -41,6 +46,9 @@ for line in preds:
     print(log_file)
     res = read_json(log_file)
     time = -1
+    # for rr in res['iteration_stats']:
+    #     print(rr)
+    #     input()
     for rr in res['iteration_stats']:
         time = float(rr['cumulative_time_sec'])
         itn = int(rr['iteration_number'])
@@ -50,7 +58,7 @@ for line in preds:
             info = -info
             
             if info>=pred:
-                print(itn,time,info,pred)
+                print('NEG',itn,time,info,pred)
                 st=f'{fnm} {itn} {time} {info} {pred}\n'
                 res_file.write(st)
                 break

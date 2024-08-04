@@ -21,12 +21,16 @@ class update_cycle_model3(torch.nn.Module):
 
         self.feat_size = feat_size
         
-    def forward(self,A,x,y,mu):
+    def forward(self,A,x,y,mu,AT):
 
         # compute AX
+        # st = time.time()
         y_new = self.y_up(A,x,mu)
-        x_new = self.x_up(A,x,y_new)
-
+        # print(time.time()-st)
+        # st = time.time()
+        x_new = self.x_up(A,x,y_new,AT)
+        # print(time.time()-st)
+        # quit()
         # print(x_new,y_new)
         # input()
 
@@ -43,10 +47,10 @@ class y_update_model3(torch.nn.Module):
         
     def forward(self,A,x,mu):
 
-        eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
+        # eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
         # compute AX
-        x = torch.matmul(A,x) - eye
-        x = self.el(mu * x) + eye
+        x = torch.matmul(A,x) - 1.0
+        x = self.el(mu * x) + 1.0
         
         return x
 
@@ -61,8 +65,8 @@ class x_update_sub_channel(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape)
-        fout = torch.matmul(self.act(torch.matmul(ATy,self.t2)+self.t3) + self.act(torch.matmul(ATy,self.t2)-self.t3) - eye, self.t1) 
+        # eye = torch.ones(size=ATy.shape)
+        fout = torch.matmul(self.act(torch.matmul(ATy,self.t2)+self.t3) + self.act(torch.matmul(ATy,self.t2)-self.t3) - 1.0, self.t1) 
         return torch.mul(fout,x)
 
 class x_update_model3(torch.nn.Module):
@@ -114,12 +118,13 @@ class x_update_model3(torch.nn.Module):
         if self.feat_size > 1:
             self.out = base_emb(feat_size,feat_size)
         
-    def forward(self,A,x,y):
+    def forward(self,A,x,y,AT):
         
         # compute AX
-        ATy = torch.matmul(torch.transpose(A,0,1),y) # n x f_y
-        eye = torch.ones(size=ATy.shape).to(ATy.device)
-        ATy = ATy - eye
+        # AT=torch.transpose(A,0,1)
+        ATy = torch.matmul(AT,y) - 1.0 # n x f_y
+        # eye = torch.ones(size=ATy.shape).to(ATy.device)
+        # ATy = ATy - 1.0
 
         f = None
         for index, layer in enumerate(self.xup):
@@ -173,6 +178,7 @@ class framework_model3(torch.nn.Module):
         # initial embedding
         x = self.x_emb(x)
         y = self.y_emb(y)
+
         for index, layer in enumerate(self.updates):
             # print(f'Starting iteration{index}: A:{A.shape}, x:{x.shape}, y:{y.shape}')
             x,y = layer(A,x,y,mu)
@@ -205,15 +211,15 @@ class framework_model1dim(torch.nn.Module):
         
         
     def forward(self,A,x,y,mu):
+        AT=torch.transpose(A,0,1)
         if self.nfeat>1:
             x = self.x_emb(x)
             y = self.y_emb(y)
         # initial embedding
         for index, layer in enumerate(self.updates):
             # print(f'Starting iteration{index}: A:{A.shape}, x:{x.shape}, y:{y.shape}')
-            x,y = layer(A,x,y,mu)
+            x,y = layer(A,x,y,mu,AT)
             # print(f'!!!!!!Ending iteration{index}: A:{A.shape}, x:{x.shape}, y:{y.shape}')
-
         if self.nfeat>1:
             x = self.x_out(x)
             y = self.y_out(y)
@@ -435,11 +441,11 @@ class y_update_with_mu(torch.nn.Module):
     def forward(self,A,x,mu):
 
         # compute AX
-        eye = torch.ones(size=(A.shape[0],self.feat_size))
+        # eye = torch.ones(size=(A.shape[0],self.feat_size))
         x = torch.matmul(A,x)
         # print(x)
         # print(x.shape,eye.shape)
-        x = self.mlp(x)-eye
+        x = self.mlp(x)-1.0
         x = mu*x
         x = torch.exp(x)
         # print(x)
@@ -588,13 +594,14 @@ class framework_model1dim_covering(torch.nn.Module):
         
         
     def forward(self,A,x,y,mu):
+        AT = torch.transpose(A,0,1)
         if self.nfeat>1:
             x = self.x_emb(x)
             y = self.y_emb(y)
         # initial embedding
         for index, layer in enumerate(self.updates):
             # print(f'Starting iteration{index}: A:{A.shape}, x:{x.shape}, y:{y.shape}')
-            x,y = layer(A,x,y,mu)
+            x,y = layer(A,x,y,mu,AT)
             # print(f'!!!!!!Ending iteration{index}: A:{A.shape}, x:{x.shape}, y:{y.shape}')
 
         if self.nfeat>1:
@@ -618,14 +625,14 @@ class update_cycle_model3_covering(torch.nn.Module):
         # if self.feat_size > 1:
         #     self.out = base_emb(feat_size,feat_size)
         
-    def forward(self,A,x,y,mu):
+    def forward(self,A,x,y,mu,AT):
 
         # compute AX
         # time1 = time.time()
         y_new = self.y_up(A,x,mu)
         # ytime = time.time()-time1
         # time1 = time.time()
-        x_new = self.x_up(A,x,y_new)
+        x_new = self.x_up(A,x,y_new,AT)
         # xtime = time.time()-time1
         # print(f'y: {ytime}   x: {xtime}')
 
@@ -644,14 +651,14 @@ class y_update_model3_covering(torch.nn.Module):
         super(y_update_model3_covering,self).__init__()
         self.el = nn.ELU()
         self.feat_size = feat_size
-        self.eye = None
+        # self.eye = None
         
     def forward(self,A,x,mu):
         
-        self.eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
+        # self.eye = torch.ones(size=(A.shape[0],self.feat_size)).to(A.device)
         # compute AX
-        x =  self.eye - torch.matmul(A,x)
-        x = self.el(mu * x) + self.eye
+        x =  1.0 - torch.matmul(A,x)
+        x = self.el(mu * x) + 1.0
         
         return x
 
@@ -666,8 +673,8 @@ class x_update_dchannel_channel(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape).to(ATy.device)
-        fout = torch.mul(self.act(ATy*self.t2+self.t3) + self.act(ATy*self.t2-self.t3) - eye,self.t1)
+        # eye = torch.ones(size=ATy.shape).to(ATy.device)
+        fout = torch.mul(self.act(ATy*self.t2+self.t3) + self.act(ATy*self.t2-self.t3) - 1.0,self.t1)
         return torch.mul(fout,x)
 
 
@@ -682,8 +689,8 @@ class x_update_dchannel_channel_g(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape)
-        fout = torch.mul(self.act(ATy*self.t2+self.t3) + self.act(ATy*self.t2-self.t3) - eye,self.t1)
+        # eye = torch.ones(size=ATy.shape)
+        fout = torch.mul(self.act(ATy*self.t2+self.t3) + self.act(ATy*self.t2-self.t3) - 1.0,self.t1)
         return torch.mul(fout,x)
 
 class x_update_sub_channel_g(torch.nn.Module):
@@ -697,7 +704,7 @@ class x_update_sub_channel_g(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape)
+        # eye = torch.ones(size=ATy.shape)
         g = torch.matmul(self.act(torch.matmul(ATy,self.t5)+self.t6) - self.act(self.t6), self.t4)
         return g
     
@@ -713,7 +720,7 @@ class x_update_dchannel_channel_g(torch.nn.Module):
         self.act = torch.nn.Sigmoid()
         
     def forward(self,ATy,x):
-        eye = torch.ones(size=ATy.shape)
+        # eye = torch.ones(size=ATy.shape)
         g = (self.act(ATy*self.t5+self.t6) - self.act(self.t6))*self.t4
         return g
 
@@ -748,12 +755,13 @@ class x_update_model3_covering(torch.nn.Module):
         
 
         
-    def forward(self,A,x,y):
+    def forward(self,A,x,y,AT):
         
         # compute AX
-        ATy = torch.matmul(torch.transpose(A,0,1),y) # n x f_y
-        eye = torch.ones(size=ATy.shape).to(A.device)
-        ATy = eye - ATy  
+        # AT = torch.transpose(A,0,1)
+        ATy = torch.matmul(AT,y) # n x f_y
+        # eye = torch.ones(size=ATy.shape).to(A.device)
+        ATy = 1.0 - ATy  
 
         f = None
         for index, layer in enumerate(self.xup):

@@ -76,6 +76,7 @@ class DeeperGCN(nn.Module):
 
     def forward(self, g, edge_feats, node_feats=None):
         with g.local_scope():
+            print(node_feats.shape)
             hv = self.node_encoder(node_feats)
             he = edge_feats
 

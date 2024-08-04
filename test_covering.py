@@ -28,11 +28,11 @@ exps = []
 # exps.append(["covering_1100_1100_60.0","covering_1000_1000_60.0","dchannel",5])
 # exps.append(["LSD_1500","LSD_1000","dchannel",5])
 # exps.append(["covering_1500_1500_60.0","covering_1000_1000_60.0","dchannel",5])
-# exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
-# exps.append(["covering_1000_1000_600.0","covering_1000_1000_600.0","dchannel",5])
-# exps.append(["covering_5000_5000_20.0","covering_5000_5000_20.0","dchannel",5])
-exps.append(["covering_50_50_600.0","covering_500_500_600.0","dchannel",5])
-exps.append(["covering_1000_1000_600.0","covering_500_500_600.0","dchannel",5])
+exps.append(["covering_1000_1000_600.0","covering_1000_1000_600.0","dchannel",5])
+exps.append(["covering_5000_5000_20.0","covering_5000_5000_20.0","dchannel",5])
+exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
+# exps.append(["covering_50_50_600.0","covering_500_500_600.0","dchannel",5])
+# exps.append(["covering_1000_1000_600.0","covering_500_500_600.0","dchannel",5])
 
 
 # 0 psimplex
@@ -136,30 +136,24 @@ def restore_feas_LP(A,x,y=None):
     buffer = []
     buffer_sum = 0.0
     
-    ts2 = eval_feas(A,x)
-    # print(max(ts2),min(ts2))
+    nnnz = idx.shape[1]
+    idx = idx.tolist()
+    val = val.tolist()
+    x = x.squeeze(-1).tolist()
     
-    
-    for i in range(idx.shape[1]):
-        current_idx = idx[1][i].item()
+    for i in range(nnnz):
+        current_idx = idx[1][i]
         if current_idx not in min_vals:
             min_vals[current_idx] = x[current_idx]
     
-    for i in range(idx.shape[1]):
-        current_row = idx[0][i].item()
-        current_idx = idx[1][i].item()
-        # print(current_row,current_idx)
-        # print(f"    {A[current_row][current_idx]}  {val[i]}")
-        # input()
+    for i in range(nnnz):
+        current_row = idx[0][i]
+        current_idx = idx[1][i]
         if row_id != current_row:
-            # print(f"Row: {current_row}::: current sum:{round(buffer_sum.item(),2)}",end="   \n")
-            # input()
             if len(buffer)!=0 and buffer_sum<1.0:
                 # new constraint, need to deal with buffer
                 for b in buffer:
                     newx1 = min_vals[b]/(buffer_sum)
-                    # print(f"      change: {b} from {min_vals[b].item()} to {newx1.item()}")
-                    # input()
                     min_vals[b] = max(min_vals[b], newx1)
                 # print('        new row val: ',new_sum.item())
             buffer = []
@@ -173,10 +167,6 @@ def restore_feas_LP(A,x,y=None):
         res[key] = max(min_vals[key],0.0)
         res[key] = min(min_vals[key],1.0)
     
-    ts2 = eval_feas(A,res)
-    # print(max(ts2),min(ts2))
-    # input()
-    # quit()
     
     return res
 
@@ -346,16 +336,8 @@ for ele in exps:
             x_res = restore_feas_MIS(A,x2,y)
         elif 'covering' in ident or 'LSD' in ident:
             x_res = restore_feas_LP(A,x2,y)
-            print('restored feasibility')
+            print('!!!!!!!!!!!restored feasibility')
         feas_time = time.time() - st
-        # for i in range(x_res.shape[0]):
-        #     print(x_res[i],sol[i])
-        
-        # # x_s = torch.div(x_res,ts2)
-        # # ts3 = eval_feas(A,x_s)
-        
-        # for i in range(ts2.shape[0]):
-        #     print(ts1[i],ts2[i])
 
         x_res = x_res.squeeze(-1)
 

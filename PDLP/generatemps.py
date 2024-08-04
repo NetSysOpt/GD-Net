@@ -7,7 +7,7 @@ import time
 import gurobipy as gp
 
 mode = 'lp'
-mode = 'covering'
+# mode = 'covering'
 
 # 0 psimplex
 # 1 dsimplex
@@ -120,8 +120,8 @@ if mode == 'lp':
     exps = []
     eps=0.2
     # exps.append(["","lp_1000_1000_600.0","dchannel",5])
-    # exps.append(["","lp_1000_1000_600.0","dchannel",5])
-    exps.append(["","lp_5000_5000_600.0","dchannel",5])
+    exps.append(["","lp_5000_5000_20.0","dchannel",5])
+    # exps.append(["","lp_10000_10000_5.0","dchannel",5])
 
 
     st_rec=[]

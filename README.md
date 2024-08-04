@@ -21,8 +21,8 @@
 
 3. ./gen_cover.py
 4. ./gen_lp.py
-6. <s>./gen_mis.py </s>
-  > code to generate covering/packing instances.
+6. ./gen_maxflow.py
+  > code to generate covering/packing/maxflow instances.
 
 7. ./helper.py
 8. convert_to_mps.py

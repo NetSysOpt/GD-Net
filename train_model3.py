@@ -34,6 +34,8 @@ ident = "IS_10000"
 ident = "lp_1000_1000_600.0"
 ident = "lp_5000_5000_20.0"
 ident = "lp_500_500_600.0"
+ident = "maxflow_2000_2000_600.0"
+ident = "maxflow_600_600_600.0"
 eps=0.2
 
 
@@ -117,7 +119,8 @@ for epoch in range(last_epoch, max_epoch):
                 cost = torch.as_tensor(tar[7])
                 minA = torch.as_tensor(tar[8])
 
-            A = torch.as_tensor(A,dtype=torch.float32).to(device)
+            if not torch.is_tensor(A):
+                A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
             amx = None
             if A.is_sparse:

@@ -418,3 +418,165 @@ def generate_dateset_Covering(n=100,nmax=100,m=100,mmax=100,p=0.9,train_files=10
 
     pool.close()
     pool.join()
+
+
+
+
+
+def create_grb_mf(n,m,p):
+    # generate graph
+    adj = []
+    for i in range(n):
+        for j in range(m):
+            if random.random()<=p:
+                adj.append((i,j))
+
+    # randomize c_max
+
+    nnz = len(adj)
+    # A = torch.zeros(size=(n+m,nnz))
+    Aindx = [[],[]]
+    Aval = []
+
+    varis = []
+    cons = []
+    model = gp.Model("maxflow")
+    model.Params.Threads = 2
+
+    tar_map_left = {}
+    tar_map_right = {}
+
+    nedge = 0
+    edg_pos = {} 
+    for edge in adj:
+        # c_max = random.random()*1.0+1.0
+        c_max = 1.0
+        i = edge[0]
+        j = edge[1]
+        x = model.addVar(vtype=gp.GRB.CONTINUOUS,name=f"x_{i}_{j}",lb=0.0,ub=c_max)
+        # print(f'x_{i}_{j}')
+        edg_pos[f'x_{i}_{j}'] = nedge
+        varis.append(x)
+        if i not in tar_map_left:
+            tar_map_left[i] = []
+        if j not in tar_map_right:
+            tar_map_right[j] = []
+        tar_map_left[i].append(x)
+        tar_map_right[j].append(x)
+        nedge+=1
+    multiplier = 40.0
+    model.update()
+
+    n_cons = 0
+    # left nodes 
+    for i in range(n):
+        if  i not in tar_map_left:
+            continue
+        involve_edges = tar_map_left[i]
+        if len(involve_edges)==0:
+            continue
+        cap = random.random()*multiplier+multiplier
+        # cap = 2.0 
+        # print(f'right node {i} edges: {involve_edges}   cap:{cap}')
+        cons.append(model.addConstr(gp.quicksum(involve_edges)<=cap))
+        for vv in involve_edges:
+            pos = edg_pos[vv.VarName]
+            Aindx[0].append(n_cons)
+            Aindx[1].append(pos)
+            Aval.append(1.0/cap)
+        n_cons+=1
+    print(f'Processed {n_cons} constraints for left nodes')
+    
+    # right nodes 
+    for i in range(m):
+        if  i not in tar_map_right:
+            continue
+        involve_edges = tar_map_right[i]
+        if len(involve_edges)==0:
+            continue
+        cap = random.random()*multiplier+multiplier
+        # cap = 2.0 
+        # print(f'right node {i} edges: {involve_edges}   cap:{cap}')
+        cons.append(model.addConstr(gp.quicksum(involve_edges)<=cap))
+        for vv in involve_edges:
+            pos = edg_pos[vv.VarName]
+            Aindx[0].append(n_cons)
+            Aindx[1].append(pos)
+            Aval.append(1.0/cap)
+        n_cons+=1
+    print(f'Processed {n_cons} constraints in total')
+        
+    obj = gp.LinExpr()
+    for v in varis:
+        obj += v
+    model.setObjective(obj, gp.GRB.MAXIMIZE)
+
+    print()
+    model.optimize()
+    # model.writeProblem('checker.lp')
+    # quit()
+    print('Solve Finished')
+    res = []
+    for v in varis:
+        res.append(v.X)
+    dual = []
+    for c in cons:
+        dual.append(c.Pi)
+    objv = model.ObjVal
+    A = torch.sparse_coo_tensor(Aindx, Aval, [n_cons, nnz])
+    return res,dual,objv,model.Runtime,A
+
+def create_and_save_mf(filename, n,m,density):
+    print(f'Generating {filename}')
+    # need to generate 
+    # A,v,c = ext(A)
+    # sol,dual,obj,sol_time = create_pyscipopt(A)
+    sol,dual,obj,sol_time,A = create_grb_mf(n,m,density)
+    A = A.coalesce()
+    v = torch.zeros([A.shape[1],2])
+    c = torch.zeros([A.shape[0],2])
+    to_pack = [A,v,c,sol,dual,obj,sol_time]
+    if filename!='':
+        f = gzip.open(filename,'wb')
+        pickle.dump(to_pack,f)
+        f.close()
+    print(f'Finished creating {filename}')
+
+# adj_map = []
+# create_and_save_mf('',600,600,0.6)
+# quit()
+
+
+def generate_dateset_Maxflow(n=200,m=200,p=0.1,train_files=1000,valid_files=100,test_files=100):
+    pillar = f'{round(p*1000,0)}'
+    if not os.path.isdir(f"./data_maxflow_{n}_{m}_{pillar}"):
+        os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}")
+        os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/train")
+        os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/valid")
+        os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/test")
+
+    
+        
+
+
+
+    pool = multiprocessing.Pool(processes=4) 
+
+    for i in range(train_files):
+        # create_and_save_lp(f"./data_lp_{n}_{m}/train/prob_{i}.pkl",n1,m1,p)
+
+        pool.apply_async(create_and_save_mf, args=(f"./data_maxflow_{n}_{m}_{pillar}/train/prob_{i}.pkl",n,m,p,))
+
+
+    for i in range(valid_files):
+        # create_and_save_lp(f"./data_lp_{n}_{m}/valid/prob_{i}.pkl",n1,m1,p)
+        pool.apply_async(create_and_save_mf, args=(f"./data_maxflow_{n}_{m}_{pillar}/valid/prob_{i}.pkl",n,m,p,))
+
+
+    for i in range(test_files):
+        # create_and_save_lp(f"./data_lp_{n}_{m}/test/prob_{i}.pkl",n1,m1,p)
+        pool.apply_async(create_and_save_mf, args=(f"./data_maxflow_{n}_{m}_{pillar}/test/prob_{i}.pkl",n,m,p,))
+
+
+    pool.close()
+    pool.join()

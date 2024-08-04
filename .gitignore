@@ -7,3 +7,5 @@ GEN/dataset
 GEN/tmp_csv
 ins
 *logs
+tmp_csv
+*.csv

@@ -13,8 +13,11 @@ from helper import *
 
 def train(model, device, data_loader, opt, loss_fn):
     model.train()
-
     train_loss = []
+    for g in data_loader:
+        print(g.ndata['feat'])
+        logits = model(g, g.edata["feat"], g.ndata["feat"])
+    quit()
     for g, labels in data_loader:
         g = g.to(device)
         labels = labels.to(torch.float32).to(device)
@@ -69,6 +72,7 @@ device = (
 g = dataset[0]
 node_feat_dim = g.ndata["feat"].size()[-1]
 edge_feat_dim = g.edata["feat"].size()[-1]
+print( g)
 n_classes = 1
 model = DeeperGCN(
     node_feat_dim=node_feat_dim,
@@ -81,7 +85,7 @@ model = DeeperGCN(
 ).to(device)
 opt = optim.Adam(model.parameters(), lr=1e-4)
 loss_fn = nn.BCEWithLogitsLoss()
-train(model, device, g, opt, loss_fn)
+train(model, device, dataset, opt, loss_fn)
 quit()
 
 
