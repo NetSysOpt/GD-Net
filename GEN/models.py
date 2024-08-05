@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from dgl.nn.pytorch.glob import AvgPooling
 from layers import GENConv
 from ogb.graphproppred.mol_encoder import AtomEncoder
+import torch
 
 
 class DeeperGCN(nn.Module):
@@ -70,13 +71,13 @@ class DeeperGCN(nn.Module):
             self.gcns.append(conv)
             self.norms.append(nn.BatchNorm1d(hid_dim, affine=True))
 
-        self.node_encoder = AtomEncoder(hid_dim)
+        # self.node_encoder = AtomEncoder(hid_dim)
+        self.node_encoder = nn.Linear(node_feat_dim,hid_dim)
         self.pooling = AvgPooling()
         self.output = nn.Linear(hid_dim, out_dim)
 
     def forward(self, g, edge_feats, node_feats=None):
         with g.local_scope():
-            print(node_feats.shape)
             hv = self.node_encoder(node_feats)
             he = edge_feats
 
@@ -84,6 +85,8 @@ class DeeperGCN(nn.Module):
                 hv1 = self.norms[layer](hv)
                 hv1 = F.relu(hv1)
                 hv1 = F.dropout(hv1, p=self.dropout, training=self.training)
+                # print(hv1.shape,hv.shape,he.shape)
+                # quit()
                 hv = self.gcns[layer](g, hv1, he) + hv
 
             h_g = self.pooling(g, hv)

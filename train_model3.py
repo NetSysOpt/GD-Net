@@ -36,6 +36,7 @@ ident = "lp_5000_5000_20.0"
 ident = "lp_500_500_600.0"
 ident = "maxflow_2000_2000_600.0"
 ident = "maxflow_600_600_600.0"
+ident = "maxflow_1000_1000_600.0"
 eps=0.2
 
 
@@ -51,11 +52,11 @@ model_type = 'dchannel'
 lrate = 1e-3
 conts=False
 
-lrate = 1e-4
-conts=False
+# lrate = 1e-4
+# conts=False
 
-lrate = 1e-5
-conts=True
+# lrate = 1e-5
+# conts=True
 
 idf = f"data_{ident}"
 
@@ -185,68 +186,71 @@ for epoch in range(last_epoch, max_epoch):
     print(f'Epoch {epoch} Train:::: primal loss:{avg_loss[0]}')
     st = f'Epoch {epoch}::::{avg_loss[0]} '
     flog.write(st)
+    
+    optimizer.zero_grad()
 
 
 
     avg_loss=[0,0,0]
-    with alive_bar(len(flist_valid),title=f"Valid Epoch:{epoch}") as bar:
-        for fnm in flist_valid:
-            # valid
-            #  reading
-            f = gzip.open(f'./data_{ident}/valid/{fnm}','rb')
-            # A,v,c,sol,dual,obj = pickle.load(f)
+    with torch.no_grad():
+        with alive_bar(len(flist_valid),title=f"Valid Epoch:{epoch}") as bar:
+            for fnm in flist_valid:
+                # valid
+                #  reading
+                f = gzip.open(f'./data_{ident}/valid/{fnm}','rb')
+                # A,v,c,sol,dual,obj = pickle.load(f)
 
-            tar = pickle.load(f)
-            A = tar[0].to(device)
-            # v = tar[1]
-            # c = tar[2]
-            sol = tar[3]
-            dual = tar[4]
-            obj = tar[5]
+                tar = pickle.load(f)
+                A = tar[0].to(device)
+                # v = tar[1]
+                # c = tar[2]
+                sol = tar[3]
+                dual = tar[4]
+                obj = tar[5]
 
 
-            if len(tar)>=9:
-                cost = tar[7]
-                minA = tar[8]
+                if len(tar)>=9:
+                    cost = tar[7]
+                    minA = tar[8]
 
-            A = torch.as_tensor(A,dtype=torch.float32).to(device)
+                A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
-            amx = None
-            if A.is_sparse:
-                amx = torch.max(A.values())
-            else:
-                amx = torch.max(A)
-            m = A.shape[0]
-            mu = 1/eps * torch.log(m*amx/eps)
+                amx = None
+                if A.is_sparse:
+                    amx = torch.max(A.values())
+                else:
+                    amx = torch.max(A)
+                m = A.shape[0]
+                mu = 1/eps * torch.log(m*amx/eps)
 
-            # x = torch.as_tensor(v,dtype=torch.float32)
-            # y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
-            f.close()
-            #  obtain loss
+                # x = torch.as_tensor(v,dtype=torch.float32)
+                # y = torch.as_tensor(c,dtype=torch.float32)
+                x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+                y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
+                f.close()
+                #  obtain loss
 
-            n = A.shape[1]
-            # x = torch.ones((n,1))
-            x = torch.zeros((n,1)).to(device)
-            y = torch.zeros((m,1)).to(device)
+                n = A.shape[1]
+                # x = torch.ones((n,1))
+                x = torch.zeros((n,1)).to(device)
+                y = torch.zeros((m,1)).to(device)
 
-            x_gt = x_gt.unsqueeze(-1)
+                x_gt = x_gt.unsqueeze(-1)
 
-            x,y = mdl(A,x,y,mu)
-            # check if need to restore val
-            # if len(tar)>=9:
-            #     x = x/minA
-            #     for i in range(x.shape[0]):
-            #         x[i] = x[i]/cost[i]
+                x,y = mdl(A,x,y,mu)
+                # check if need to restore val
+                # if len(tar)>=9:
+                #     x = x/minA
+                #     for i in range(x.shape[0]):
+                #         x[i] = x[i]/cost[i]
 
-            loss_x = loss_func(x, x_gt)
-            avg_loss[0] += loss_x.item()
-            # loss_y = loss_func(y, y_gt)
-            # avg_loss[1] += loss_y.item()
-            # loss = loss_x+loss_y
-            # avg_loss[2] += loss.item()
-            bar()
+                loss_x = loss_func(x, x_gt)
+                avg_loss[0] += loss_x.item()
+                # loss_y = loss_func(y, y_gt)
+                # avg_loss[1] += loss_y.item()
+                # loss = loss_x+loss_y
+                # avg_loss[2] += loss.item()
+                bar()
     avg_loss[0] /= round(len(flist_valid),2)
     avg_loss[1] /= round(len(flist_valid),2)
     avg_loss[2] /= round(len(flist_valid),2)

@@ -15,10 +15,11 @@ def train(model, device, data_loader, opt, loss_fn):
     model.train()
     train_loss = []
     for g in data_loader:
-        print(g.ndata['feat'])
+        # print(g.ndata['feat'])
         logits = model(g, g.edata["feat"], g.ndata["feat"])
-    quit()
+    print(data_loader)
     for g, labels in data_loader:
+        quit()
         g = g.to(device)
         labels = labels.to(torch.float32).to(device)
         logits = model(g, g.edata["feat"], g.ndata["feat"])
@@ -57,7 +58,7 @@ class new_data:
         
         
 def get_dataset(fnm):
-    generate_csv_from_file(fnm,ndim=4,mode=0)
+    generate_csv_from_file(fnm,ndim=2,mode=0)
     dataset = dgl.data.CSVDataset('./tmp_csv')
     return dataset
     
@@ -69,10 +70,13 @@ device = (
     if torch.cuda.is_available()
     else "cpu"
 )
+device = ("cpu")
 g = dataset[0]
 node_feat_dim = g.ndata["feat"].size()[-1]
 edge_feat_dim = g.edata["feat"].size()[-1]
-print( g)
+# print( g,g.ndata["feat"].size())
+# print(g.ndata["feat"])
+# quit()
 n_classes = 1
 model = DeeperGCN(
     node_feat_dim=node_feat_dim,

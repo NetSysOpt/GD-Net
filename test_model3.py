@@ -27,9 +27,28 @@ with torch.no_grad():
         vs = model.addVars(n, vtype=gp.GRB.CONTINUOUS)
         model.setObjective(vs.sum(), gp.GRB.MAXIMIZE)
         if A.is_sparse:
-            A=A.to_dense()
-        npy = A.numpy()
-        model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) <= 1.0) for i in range(m))
+            # A=A.to_dense()
+            Aind = A.indices().tolist()
+            Aval = A.values().tolist()
+            nc = A._nnz()
+            current_row = -1
+            buffer = []
+            conss = []
+            for i in range(nc):
+                rind = Aind[0][i]
+                cind = Aind[1][i]
+                if rind != current_row:
+                    # new constriant, need to create constraint
+                    if len(buffer)!=0:
+                        model.addConstr(gp.quicksum(j[0] * j[1] for j in buffer) <= 1.0)
+                    current_row = rind
+                    buffer =[]
+                buffer.append([vs[cind],Aval[i]])
+            if len(buffer)!=0:
+                model.addConstr(gp.quicksum(j[0] * j[1] for j in buffer) <= 1.0)
+        else:
+            npy = A.numpy()
+            model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) <= 1.0) for i in range(m))
         model.update()
         print('Finished building')
         return model
@@ -166,11 +185,13 @@ with torch.no_grad():
     # exps.append(["lp_500_500_600.0","lp_500_500_600.0","dchannel",5])
     # exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
     # exps.append(["IS_10000","IS_10000","dchannel",5])
-    exps.append(["lp_1000_1000_600.0","lp_1000_1000_600.0","dchannel",5])
-    exps.append(["lp_5000_5000_20.0","lp_5000_5000_20.0","dchannel",5])
-    exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
+    # exps.append(["lp_1000_1000_600.0","lp_1000_1000_600.0","dchannel",5])
+    # exps.append(["lp_5000_5000_20.0","lp_5000_5000_20.0","dchannel",5])
+    # exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
+    exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
+    # exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
 
 
     st_rec=[]
@@ -222,7 +243,6 @@ with torch.no_grad():
         
 
         def restore_feas_LP(A,x,y=None,ub=1.0):
-            
             st = time.time()
             if ub is None:
                 x=torch.clamp(x,min=0.0)
@@ -308,7 +328,7 @@ with torch.no_grad():
 
         # mdl = framework_model3(2,2,64,4)
         # mdl = framework_model1dim(4,64,nfeat)
-        mdl = framework_model1dim(4,64,nfeat,model_type)
+        mdl = framework_model1dim(4,64,nfeat,model_type).to(device)
 
         print(f"./model/best_model3_{model_name}{other}.mdl")
         if os.path.exists(f"./model/best_model3_{model_name}{other}.mdl"):
@@ -362,9 +382,10 @@ with torch.no_grad():
             f = gzip.open(f'./data_{ident}/test/{fnm}','rb')
             # A,v,c,sol,dual,obj = pickle.load(f)
             tar = pickle.load(f)
-            A = tar[0]
-            v = tar[1]
-            c = tar[2]
+            Ak = tar[0]
+            A=Ak.to(device)
+            v = tar[1].to(device)
+            c = tar[2].to(device)
             sol = tar[3]
             dual = tar[4]
             obj = tar[5]
@@ -374,8 +395,8 @@ with torch.no_grad():
             if len(tar)>=9:
                 cost = tar[7]
                 minA = tar[8]
-
-            A = torch.as_tensor(A,dtype=torch.float32)
+            if not torch.is_tensor(A):
+                A = torch.as_tensor(A,dtype=torch.float32).to(device)
 
             amx = None
             if A.is_sparse:
@@ -386,36 +407,39 @@ with torch.no_grad():
             m = A.shape[0]
             mu = 1/eps * torch.log(m*amx/eps)
 
-            x = torch.as_tensor(v,dtype=torch.float32)
-            y = torch.as_tensor(c,dtype=torch.float32)
-            x_gt = torch.as_tensor(sol,dtype=torch.float32)
-            y_gt = torch.as_tensor(dual,dtype=torch.float32)
+            x = torch.as_tensor(v,dtype=torch.float32).to(device)
+            y = torch.as_tensor(c,dtype=torch.float32).to(device)
+            x_gt = torch.as_tensor(sol,dtype=torch.float32).to(device)
+            y_gt = torch.as_tensor(dual,dtype=torch.float32).to(device)
             f.close()
             
             #  obtain loss
             n = A.shape[1]
-            x = torch.ones((n,1))
+            x = torch.ones((n,1)).to(device)
             if 'x0' in other:
-                x = torch.zeros((n,1))
-            y = torch.zeros((m,1))
+                x = torch.zeros((n,1)).to(device)
+            y = torch.zeros((m,1)).to(device)
             
             st = time.time()
             x2,y = mdl(A,x,y,mu)
             inf_time = time.time() - st
             
-            x_res = x2
+            x_res = x2.to(device)
             # ts1 = eval_feas(A,x_res)
             st = time.time()
             if ident == 'mis':
-                x_res = restore_feas_MIS(A,x2,y)
+                x_res = restore_feas_MIS(A,x2,y).to(device)
             elif 'lp' in ident:
-                x_res = restore_feas_LP(A,x2,y)
+                x_res = restore_feas_LP(Ak,x2,y).to(device)
                 print('restored feasibility')
             elif 'CA' in ident:
-                x_res = restore_feas_LP(A,x2,y)
+                x_res = restore_feas_LP(Ak,x2,y).to(device)
                 print('restored feasibility')
             elif 'IS' in ident:
-                x_res = restore_feas_LP(A,x2,y)
+                x_res = restore_feas_LP(Ak,x2,y).to(device)
+                print('restored feasibility')
+            else:
+                x_res = restore_feas_LP(Ak,x2,y).to(device)
                 print('restored feasibility')
             feas_time = time.time() - st
             # for i in range(x_res.shape[0]):

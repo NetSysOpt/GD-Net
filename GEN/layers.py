@@ -78,7 +78,8 @@ class GENConv(nn.Module):
             else p
         )
 
-        self.edge_encoder = BondEncoder(in_dim)
+        # self.edge_encoder = BondEncoder(in_dim)
+        self.edge_encoder = nn.Linear(2,out_dim)
 
     def forward(self, g, node_feats, edge_feats):
         with g.local_scope():

@@ -64,6 +64,7 @@ ident = "IS_1000"
 ident = "lp_1000_1000_60.0"
 ident = 'covering_500_500_600.0'
 ident = 'lp_500_500_600.0'
+ident = 'maxflow_1000_1000_600.0'
 idf = f"data_{ident}"
 
 flist_train = os.listdir(f'./{idf}/train')

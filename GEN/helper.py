@@ -49,7 +49,7 @@ def generate_csv_from_file(fnm,ndim=4,mode=0):
         src = ele[0].item()
         dst = ele[1].item()
         val = vals[id_idx].item()
-        st = f'{src},{dst},{bol[0]},{bol[1]},{bol[2]},\"{val},1.0\"\n'
+        st = f'{src},{dst},{bol[0]},{bol[1]},{bol[2]},\"{val}, 1.0\"\n'
         f.write(st)
     f.close()
     
@@ -58,11 +58,11 @@ def generate_csv_from_file(fnm,ndim=4,mode=0):
     f.write(st)
     for i in range(m):
         val = dual[i]
-        st = f'{i},{val},{bol[0]},{bol[1]},{bol[2]},\"0.0,0.0\"\n'
+        st = f'{i},{val},{bol[0]},{bol[1]},{bol[2]},\"0.0, 1.0\"\n'
         f.write(st)
     for i in range(n):
         val = sol[i]
-        st = f'{i+m},{val},{bol[0]},{bol[1]},{bol[2]},\"0.0, 0.0\"\n'
+        st = f'{i+m},{val},{bol[0]},{bol[1]},{bol[2]},\"0.0, 1.0\"\n'
         f.write(st)
         
     f.close()
