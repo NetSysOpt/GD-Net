@@ -190,8 +190,8 @@ with torch.no_grad():
     # exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
-    exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
-    # exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
+    # exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
+    exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
 
 
     st_rec=[]

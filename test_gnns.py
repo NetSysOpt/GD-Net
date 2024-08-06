@@ -122,8 +122,10 @@ eps=0.2
 # exps.append(["lp_1000_1000_60.0","lp_1000_1000_60.0","dchannel",5])
 # exps.append(["covering_500_500_600.0","covering_50_50_600.0","dchannel",5])
 # exps.append(["covering_500_500_600.0","covering_1000_1000_600.0","dchannel",5])
-exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
-exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
+# exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
+# exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
+# exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
+exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
 # exps.append(["IS_1000","IS_1000","IS test"])
 
 records = []
@@ -182,8 +184,9 @@ for ele in exps:
         
         return res
     
+    
 
-    def restore_feas_covering(A,x,y=None):
+    def restore_feas_covering2(A,x,y=None):
         
         x=torch.clamp(x,min=0.0,max=1.0)
         
@@ -242,7 +245,7 @@ for ele in exps:
         return res
     
 
-    def restore_feas_LP(A,x,y=None,ub=1.0):
+    def restore_feas_LP2(A,x,y=None,ub=1.0):
         
         if ub is None:
             x=torch.clamp(x,min=0.0)
@@ -302,6 +305,125 @@ for ele in exps:
         
         # print(max(ts2),min(ts2))
         # quit()
+        return res
+
+
+    
+    def restore_feas_LP(A,x,y=None,ub=1.0):
+        st = time.time()
+        if ub is None:
+            x=torch.clamp(x,min=0.0)
+        else:
+            x=torch.clamp(x,min=0.0,max=ub)
+        
+        min_vals = {}
+        spa = A.to_sparse()
+        idx = spa.indices()
+        val = spa.values()
+        res = torch.zeros(x.shape)
+
+        
+        row_id = 0
+        buffer = []
+        buffer_sum = 0.0
+        
+        # print(max(ts2),min(ts2))
+        
+        nnnz = idx.shape[1]
+        idx = idx.tolist()
+        val = val.tolist()
+        x = x.squeeze(-1).tolist()
+        
+        for i in range(nnnz):
+            current_idx = idx[1][i]
+            if current_idx not in min_vals:
+                min_vals[current_idx] = x[current_idx]
+
+        
+        for i in range(nnnz):
+            current_row = idx[0][i]
+            current_idx = idx[1][i]
+            # print(current_row,current_idx)
+            # print(f"    {A[current_row][current_idx]}  {val[i]}")
+            # input()
+            if row_id != current_row:
+                if len(buffer)!=0 and buffer_sum>1.0:
+                    # new constraint, need to deal with buffer
+                    new_sum = 0.0
+                    # print(f"Row: {current_row}::: current sum:{round(buffer_sum.item(),2)}",end="   ")
+                    for b in buffer:
+                        newx1 = min_vals[b]/(buffer_sum)
+                        # print(f"      change: {b} from {min_vals[b].item()} to {newx1.item()}")
+                        # input()
+                        min_vals[b] = min(min_vals[b], newx1)
+                        new_sum += min_vals[b] * val[i]
+                        # new_sum += min_vals[b] * A[row_id,b]
+                    # print('        new row val: ',new_sum.item())
+                buffer = []
+                buffer_sum = 0.0
+                row_id = current_row
+                
+            buffer.append(current_idx)    
+            buffer_sum += val[i]*min_vals[current_idx]    
+
+            
+        for key in min_vals:
+            res[key] = max(min_vals[key],0.0)
+            if ub is not None:
+                res[key] = min(min_vals[key],ub)
+        
+        # ts2 = eval_feas(A,res)
+        # print(max(ts2),min(ts2))
+        # quit()
+        return res
+
+        
+    def restore_feas_covering(A,x,y=None):
+        
+        x=torch.clamp(x,min=0.0,max=1.0)
+        
+        min_vals = {}
+        spa = A.to_sparse()
+        idx = spa.indices()
+        val = spa.values()
+        res = torch.zeros(x.shape)
+        
+        row_id = 0
+        buffer = []
+        buffer_sum = 0.0
+        
+        nnnz = idx.shape[1]
+        idx = idx.tolist()
+        val = val.tolist()
+        x = x.squeeze(-1).tolist()
+        
+        for i in range(nnnz):
+            current_idx = idx[1][i]
+            if current_idx not in min_vals:
+                min_vals[current_idx] = x[current_idx]
+        
+        for i in range(nnnz):
+            current_row = idx[0][i]
+            current_idx = idx[1][i]
+            if row_id != current_row:
+                if len(buffer)!=0 and buffer_sum<1.0:
+                    # new constraint, need to deal with buffer
+                    for b in buffer:
+                        newx1 = min_vals[b]/(buffer_sum)
+                        min_vals[b] = max(min_vals[b], newx1)
+                    # print('        new row val: ',new_sum.item())
+                buffer = []
+                buffer_sum = 0.0
+                row_id = current_row
+                
+            buffer.append(current_idx)    
+            buffer_sum += val[i]*min_vals[current_idx]    
+            
+        for key in min_vals:
+            res[key] = max(min_vals[key],0.0)
+            res[key] = min(min_vals[key],1.0)
+        
+        
         return res
 
     def eval_feas(A,x):
@@ -452,6 +574,9 @@ for ele in exps:
         elif 'covering' in ident or 'LSD' in ident:
             print("Restoring")
             x_res = restore_feas_covering(A,x_res)
+            print('restored feasibility')
+        elif 'maxflow' in ident:
+            x_res = restore_feas_LP(A,x_res)
             print('restored feasibility')
         feas_time = time.time() - st2
         # for i in range(x_res.shape[0]):

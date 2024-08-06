@@ -9,3 +9,4 @@ ins
 *logs
 tmp_csv
 *.csv
+tmp_csv_*

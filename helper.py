@@ -451,7 +451,7 @@ def create_grb_mf(n,m,p):
     nedge = 0
     edg_pos = {} 
     for edge in adj:
-        c_max = random.random()*2.0+2.0
+        c_max = random.random()*1.0+1.0
         # c_max = 1.0
         i = edge[0]
         j = edge[1]
@@ -466,8 +466,8 @@ def create_grb_mf(n,m,p):
         tar_map_left[i].append(x)
         tar_map_right[j].append(x)
         nedge+=1
-    multiplier = 500.0
-    offset = 500
+    multiplier = 40.0
+    offset = 40
     model.update()
 
     n_cons = 0
@@ -801,7 +801,7 @@ def create_and_save_mf(filename, n,m,density,mode=0):
     print(f'Finished creating {filename}')
 
 # create_and_save_mf('',2000,2000,0.6,mode=0)
-create_and_save_mf('',2000,2000,0.6,mode=1)
+# create_and_save_mf('',2000,2000,0.6,mode=1)
 # create_and_save_mf('',600000,600000,0.6,mode=0)
 # quit()
 

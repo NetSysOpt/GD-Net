@@ -36,7 +36,7 @@ ident = "lp_5000_5000_20.0"
 ident = "lp_500_500_600.0"
 ident = "maxflow_2000_2000_600.0"
 ident = "maxflow_600_600_600.0"
-ident = "maxflow_1000_1000_600.0"
+# ident = "maxflow_1000_1000_600.0"
 eps=0.2
 
 

@@ -88,7 +88,8 @@ class DeeperGCN(nn.Module):
                 # print(hv1.shape,hv.shape,he.shape)
                 # quit()
                 hv = self.gcns[layer](g, hv1, he) + hv
+                
+            res = self.output(hv)
 
-            h_g = self.pooling(g, hv)
 
-            return self.output(h_g)
+            return res
