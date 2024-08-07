@@ -450,12 +450,14 @@ def create_grb_mf(n,m,p):
 
     nedge = 0
     edg_pos = {} 
+    v_bounds = []
     for edge in adj:
         c_max = random.random()*1.0+1.0
         # c_max = 1.0
         i = edge[0]
         j = edge[1]
         x = model.addVar(vtype=gp.GRB.CONTINUOUS,name=f"x_{i}_{j}",lb=0.0,ub=c_max)
+        v_bounds.append([i,j,c_max])
         # print(f'x_{i}_{j}')
         edg_pos[f'x_{i}_{j}'] = nedge
         varis.append(x)
@@ -471,6 +473,7 @@ def create_grb_mf(n,m,p):
     model.update()
 
     n_cons = 0
+    src_bound = []
     # left nodes 
     for i in range(n):
         if  i not in tar_map_left:
@@ -479,6 +482,7 @@ def create_grb_mf(n,m,p):
         if len(involve_edges)==0:
             continue
         cap = random.random()*multiplier+offset
+        src_bound.append(cap)
         # cap = 2.0 
         # print(f'right node {i} edges: {involve_edges}   cap:{cap}')
         cons.append(model.addConstr(gp.quicksum(involve_edges)<=cap))
@@ -490,6 +494,7 @@ def create_grb_mf(n,m,p):
         n_cons+=1
     print(f'Processed {n_cons} constraints for left nodes')
     
+    dst_bound = []
     # right nodes 
     for i in range(m):
         if  i not in tar_map_right:
@@ -498,6 +503,7 @@ def create_grb_mf(n,m,p):
         if len(involve_edges)==0:
             continue
         cap = random.random()*multiplier+offset
+        dst_bound.append(cap)
         # cap = 2.0 
         # print(f'right node {i} edges: {involve_edges}   cap:{cap}')
         cons.append(model.addConstr(gp.quicksum(involve_edges)<=cap))
@@ -527,7 +533,7 @@ def create_grb_mf(n,m,p):
         dual.append(c.Pi)
     objv = model.ObjVal
     A = torch.sparse_coo_tensor(Aindx, Aval, [n_cons, nnz])
-    return res,dual,objv,model.Runtime,A
+    return res,dual,objv,model.Runtime,A,[v_bounds,src_bound,dst_bound]
 
 
 
@@ -784,8 +790,9 @@ def create_and_save_mf(filename, n,m,density,mode=0):
     # need to generate 
     # A,v,c = ext(A)
     # sol,dual,obj,sol_time = create_pyscipopt(A)
+    package = None
     if mode==0:
-        sol,dual,obj,sol_time,A = create_grb_mf(n,m,density)
+        sol,dual,obj,sol_time,A,package = create_grb_mf(n,m,density)
     elif mode ==1:
         sol,dual,obj,sol_time,A = create_grb_mf2(n,m,density)
     elif mode ==2:
@@ -798,9 +805,16 @@ def create_and_save_mf(filename, n,m,density,mode=0):
         f = gzip.open(filename,'wb')
         pickle.dump(to_pack,f)
         f.close()
+        
+    to_pack = package
+    if filename!='':
+        filename = filename.replace('maxflow','maxflow_info')
+        f = gzip.open(filename,'wb')
+        pickle.dump(to_pack,f)
+        f.close()
     print(f'Finished creating {filename}')
 
-# create_and_save_mf('',2000,2000,0.6,mode=0)
+# create_and_save_mf('',600,600,0.6,mode=0)
 # create_and_save_mf('',2000,2000,0.6,mode=1)
 # create_and_save_mf('',600000,600000,0.6,mode=0)
 # quit()
@@ -813,6 +827,14 @@ def generate_dateset_Maxflow(n=200,m=200,p=0.1,train_files=1000,valid_files=100,
         os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/train")
         os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/valid")
         os.mkdir(f"./data_maxflow_{n}_{m}_{pillar}/test")
+        
+    if not os.path.isdir(f"./data_maxflow_info_{n}_{m}_{pillar}"):
+        os.mkdir(f"./data_maxflow_info_{n}_{m}_{pillar}")
+    if not os.path.isdir(f"./data_maxflow_info_{n}_{m}_{pillar}/train"):
+        os.mkdir(f"./data_maxflow_info_{n}_{m}_{pillar}/train")
+        os.mkdir(f"./data_maxflow_info_{n}_{m}_{pillar}/valid")
+        os.mkdir(f"./data_maxflow_info_{n}_{m}_{pillar}/test")
+    
 
     
         
