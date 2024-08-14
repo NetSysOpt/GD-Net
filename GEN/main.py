@@ -109,11 +109,11 @@ def main(cont=False,restart=False):
         edge_feat_dim=edge_feat_dim,
         hid_dim=64,
         out_dim=n_classes,
-        num_layers=4,
+        num_layers=8,
         dropout=0.2,
         learn_beta=False,
     ).to(device)
-    opt = optim.Adam(model.parameters(), lr=1e-4)
+    opt = optim.Adam(model.parameters(), lr=1e-5)
     loss_fn = nn.BCEWithLogitsLoss()
 
     last_epoch = 0

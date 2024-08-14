@@ -1047,3 +1047,277 @@ function optimize(
       time() - time_spent_doing_basic_algorithm_checkpoint
   end
 end
+
+
+
+function optimize_ws(
+  params::PdhgParameters,
+  original_problem::QuadraticProgrammingProblem,
+  x
+)
+  validate(original_problem)
+  qp_cache = cached_quadratic_program_info(original_problem)
+  scaled_problem = rescale_problem(
+    params.l_inf_ruiz_iterations,
+    params.l2_norm_rescaling,
+    params.pock_chambolle_alpha,
+    params.verbosity,
+    original_problem,
+  )
+  problem = scaled_problem.scaled_qp
+
+  primal_size = length(problem.variable_lower_bound)
+  dual_size = length(problem.right_hand_side)
+  if params.primal_importance <= 0 || !isfinite(params.primal_importance)
+    error("primal_importance must be positive and finite")
+  end
+
+  # TODO: Correctly account for the number of kkt passes in
+  # initialization
+  ws_primal = zeros(primal_size)
+
+  solver_state = PdhgSolverState(
+    ws_primal,  # current_primal_solution
+    zeros(dual_size),    # current_dual_solution
+    zeros(primal_size),  # delta_primal
+    zeros(dual_size),    # delta_dual
+    zeros(primal_size),  # current_dual_product
+    initialize_solution_weighted_average(primal_size, dual_size),
+    0.0,                 # step_size
+    1.0,                 # primal_weight
+    false,               # numerical_error
+    0.0,                 # cumulative_kkt_passes
+    0,                   # total_number_iterations
+    nothing,             # required_ratio
+    nothing,             # ratio_step_sizes
+  )
+
+  if params.step_size_policy_params isa AdaptiveStepsizeParams
+    solver_state.cumulative_kkt_passes += 0.5
+    solver_state.step_size = 1.0 / norm(problem.constraint_matrix, Inf)
+  elseif params.step_size_policy_params isa MalitskyPockStepsizeParameters
+    solver_state.cumulative_kkt_passes += 0.5
+    solver_state.step_size = 1.0 / norm(problem.constraint_matrix, Inf)
+    solver_state.ratio_step_sizes = 1.0
+  else
+    desired_relative_error = 0.2
+    maximum_singular_value, number_of_power_iterations =
+      estimate_maximum_singular_value(
+        problem.constraint_matrix,
+        probability_of_failure = 0.001,
+        desired_relative_error = desired_relative_error,
+      )
+    solver_state.step_size =
+      (1 - desired_relative_error) / maximum_singular_value
+    solver_state.cumulative_kkt_passes += number_of_power_iterations
+  end
+
+  # Idealized number of KKT passes each time the termination criteria and
+  # restart scheme is run. One of these comes from evaluating the gradient at
+  # the average solution and evaluating the gradient at the current solution.
+  # In practice this number is four.
+  KKT_PASSES_PER_TERMINATION_EVALUATION = 2.0
+
+  if params.scale_invariant_initial_primal_weight
+    solver_state.primal_weight = select_initial_primal_weight(
+      problem,
+      ones(primal_size),
+      ones(dual_size),
+      params.primal_importance,
+      params.verbosity,
+    )
+  else
+    solver_state.primal_weight = params.primal_importance
+  end
+
+  primal_weight_update_smoothing =
+    params.restart_params.primal_weight_update_smoothing
+
+  iteration_stats = IterationStats[]
+  start_time = time()
+  # Basic algorithm refers to the primal and dual steps, and excludes restart
+  # schemes and termination evaluation.
+  time_spent_doing_basic_algorithm = 0.0
+
+  # This variable is used in the adaptive restart scheme.
+  last_restart_info = create_last_restart_info(
+    problem,
+    solver_state.current_primal_solution,
+    solver_state.current_dual_solution,
+  )
+
+  # For termination criteria:
+  termination_criteria = params.termination_criteria
+  iteration_limit = termination_criteria.iteration_limit
+  termination_evaluation_frequency = params.termination_evaluation_frequency
+
+  # This flag represents whether a numerical error occurred during the algorithm
+  # if it is set to true it will trigger the algorithm to terminate.
+  solver_state.numerical_error = false
+  display_iteration_stats_heading(params.verbosity)
+
+  iteration = 0
+  while true
+    iteration += 1
+
+    # Evaluate the iteration stats at frequency
+    # termination_evaluation_frequency, when the iteration_limit is reached,
+    # or if a numerical error occurs at the previous iteration.
+    if mod(iteration - 1, termination_evaluation_frequency) == 0 ||
+       iteration == iteration_limit + 1 ||
+       iteration <= 10 ||
+       solver_state.numerical_error
+      # TODO: Experiment with evaluating every power of two iterations.
+      # This ensures that we do sufficient primal weight updates in the initial
+      # stages of the algorithm.
+      solver_state.cumulative_kkt_passes +=
+        KKT_PASSES_PER_TERMINATION_EVALUATION
+      # Compute the average solution since the last restart point.
+      if solver_state.numerical_error ||
+         solver_state.solution_weighted_avg.sum_primal_solutions_count == 0 ||
+         solver_state.solution_weighted_avg.sum_dual_solutions_count == 0
+        avg_primal_solution = solver_state.current_primal_solution
+        avg_dual_solution = solver_state.current_dual_solution
+      else
+        avg_primal_solution, avg_dual_solution =
+          compute_average(solver_state.solution_weighted_avg)
+      end
+
+      current_iteration_stats = evaluate_unscaled_iteration_stats(
+        scaled_problem,
+        qp_cache,
+        params.termination_criteria,
+        params.record_iteration_stats,
+        avg_primal_solution,
+        avg_dual_solution,
+        iteration,
+        time() - start_time,
+        solver_state.cumulative_kkt_passes,
+        termination_criteria.eps_optimal_absolute,
+        termination_criteria.eps_optimal_relative,
+        solver_state.step_size,
+        solver_state.primal_weight,
+        POINT_TYPE_AVERAGE_ITERATE,
+      )
+      method_specific_stats = current_iteration_stats.method_specific_stats
+      method_specific_stats["time_spent_doing_basic_algorithm"] =
+        time_spent_doing_basic_algorithm
+
+      primal_norm_params, dual_norm_params = define_norms(
+        primal_size,
+        dual_size,
+        solver_state.step_size,
+        solver_state.primal_weight,
+      )
+      update_objective_bound_estimates(
+        current_iteration_stats.method_specific_stats,
+        problem,
+        avg_primal_solution,
+        avg_dual_solution,
+        primal_norm_params,
+        dual_norm_params,
+      )
+      # Check the termination criteria.
+      termination_reason = check_termination_criteria(
+        termination_criteria,
+        qp_cache,
+        current_iteration_stats,
+      )
+      if solver_state.numerical_error && termination_reason == false
+        termination_reason = TERMINATION_REASON_NUMERICAL_ERROR
+      end
+
+      # If we're terminating, record the iteration stats to provide final
+      # solution stats.
+      if params.record_iteration_stats || termination_reason != false
+        push!(iteration_stats, current_iteration_stats)
+      end
+
+      # Print table.
+      if print_to_screen_this_iteration(
+        termination_reason,
+        iteration,
+        params.verbosity,
+        termination_evaluation_frequency,
+      )
+        display_iteration_stats(current_iteration_stats, params.verbosity)
+      end
+
+      if termination_reason != false
+        # ** Terminate the algorithm **
+        # This is the only place the algorithm can terminate. Please keep it
+        # this way.
+        pdhg_final_log(
+          problem,
+          avg_primal_solution,
+          avg_dual_solution,
+          params.verbosity,
+          iteration,
+          termination_reason,
+          current_iteration_stats,
+        )
+        return unscaled_saddle_point_output(
+          scaled_problem,
+          avg_primal_solution,
+          avg_dual_solution,
+          termination_reason,
+          iteration - 1,
+          iteration_stats,
+        )
+      end
+
+      current_iteration_stats.restart_used = run_restart_scheme(
+        problem,
+        solver_state.solution_weighted_avg,
+        solver_state.current_primal_solution,
+        solver_state.current_dual_solution,
+        last_restart_info,
+        iteration - 1,
+        primal_norm_params,
+        dual_norm_params,
+        solver_state.primal_weight,
+        params.verbosity,
+        params.restart_params,
+      )
+
+      if current_iteration_stats.restart_used != RESTART_CHOICE_NO_RESTART
+        solver_state.primal_weight = compute_new_primal_weight(
+          last_restart_info,
+          solver_state.primal_weight,
+          primal_weight_update_smoothing,
+          params.verbosity,
+        )
+        solver_state.ratio_step_sizes = 1.0
+      end
+      if current_iteration_stats.restart_used ==
+         RESTART_CHOICE_RESTART_TO_AVERAGE
+        solver_state.current_dual_product =
+          problem.constraint_matrix' * solver_state.current_dual_solution
+      end
+    end
+
+    time_spent_doing_basic_algorithm_checkpoint = time()
+
+    if params.verbosity >= 6 && print_to_screen_this_iteration(
+      false, # termination_reason
+      iteration,
+      params.verbosity,
+      termination_evaluation_frequency,
+    )
+      pdhg_specific_log(
+        problem,
+        iteration,
+        solver_state.current_primal_solution,
+        solver_state.current_dual_solution,
+        solver_state.step_size,
+        solver_state.required_ratio,
+        solver_state.primal_weight,
+      )
+    end
+
+    take_step(params.step_size_policy_params, problem, solver_state)
+
+    time_spent_doing_basic_algorithm +=
+      time() - time_spent_doing_basic_algorithm_checkpoint
+  end
+end

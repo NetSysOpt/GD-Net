@@ -7,16 +7,16 @@ import time
 import gurobipy as gp
 
 mode = 'lp'
-# mode = 'covering'
+mode = 'covering'
 
 # 0 psimplex
 # 1 dsimplex
 # 2 barrier
 # def establish_grb(A,nthreads=8,method=-1,timelim=100.0):
 def establish_grb(A,nthreads=1,method=0,timelim=100.0,indx=0):
-    print('Building model')
     n = A.shape[1]
     m = A.shape[0]
+    print(f'Building {indx}th model with {n} vars    {m} cons')
     model = gp.Model("lp1")
     model.Params.Threads = nthreads
     model.Params.Method = method
@@ -37,6 +37,7 @@ def establish_grb_covering(A,nthreads=1,method=0,timelim=100.0,indx=0):
     print('Building model')
     n = A.shape[1]
     m = A.shape[0]
+    print(f'Building {indx}th model with {n} vars    {m} cons')
     model = gp.Model("lp1")
     model.Params.Threads = nthreads
     model.Params.Method = method
@@ -141,6 +142,7 @@ if mode == 'lp':
             # test
             #  reading
             print(fnm)
+            iidx = fnm.split('_')[-1].split('.')[0]
             iix = int(fnm.split('_')[-1].replace('.pkl',''))
 
             f = gzip.open(f'../data_{ident}/test/{fnm}','rb')
@@ -148,13 +150,13 @@ if mode == 'lp':
             A = tar[0]
             f.close()
             
-            establish_grb(A,indx=iix)
+            establish_grb(A,indx=iidx)
 else:    
     exps = []
     eps=0.2
-    # exps.append(["","covering_1000_1000_600.0","dchannel",5])
-    # exps.append(["","covering_1000_1000_600.0","dchannel",5])
-    exps.append(["","covering_10000_10000_5.0","dchannel",5])
+    exps.append(["","covering_1000_1000_600.0","dchannel",5])
+    # exps.append(["","covering_5000_5000_20.0","dchannel",5])
+    # exps.append(["","covering_10000_10000_5.0","dchannel",5])
 
 
     st_rec=[]
@@ -166,18 +168,20 @@ else:
         model_type = ele[2]
         nfeat = ele[3]
         
-        print(f'Current running:::: {ele[2]}')
+        print(ident)
+        print(f'COvering::::::  Current running:::: {ele[2]}')
         flist_test = os.listdir(f'../data_{ident}/test')
         
         
         for indx, fnm in enumerate(flist_test):
             # test
             #  reading
-            print(fnm)
+            iidx = fnm.split('_')[-1].split('.')[0]
+            print(fnm,iidx)
             iix = int(fnm.split('_')[-1].replace('.pkl',''))
             f = gzip.open(f'../data_{ident}/test/{fnm}','rb')
             tar = pickle.load(f)
             A = tar[0]
             f.close()
             
-            establish_grb_covering(A,indx=indx)
+            establish_grb_covering(A,indx=int(iidx))

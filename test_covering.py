@@ -9,6 +9,8 @@ import time
 import gurobipy as gp
 exps = []
 
+store_sol=True
+
 # exps.append(["covering_15_15_60.0","covering_15_15_60.0","15 60 test"])
 # exps.append(["covering_75_75_60.0","covering_75_75_60.0","dchannel",5])
 # exps.append(["covering_500_500_60.0","covering_500_500_60.0","dchannel",5])
@@ -29,8 +31,8 @@ exps = []
 # exps.append(["LSD_1500","LSD_1000","dchannel",5])
 # exps.append(["covering_1500_1500_60.0","covering_1000_1000_60.0","dchannel",5])
 exps.append(["covering_1000_1000_600.0","covering_1000_1000_600.0","dchannel",5])
-exps.append(["covering_5000_5000_20.0","covering_5000_5000_20.0","dchannel",5])
-exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
+# exps.append(["covering_5000_5000_20.0","covering_5000_5000_20.0","dchannel",5])
+# exps.append(["covering_10000_10000_5.0","covering_10000_10000_5.0","dchannel",5])
 # exps.append(["covering_50_50_600.0","covering_500_500_600.0","dchannel",5])
 # exps.append(["covering_1000_1000_600.0","covering_500_500_600.0","dchannel",5])
 
@@ -328,7 +330,6 @@ for ele in exps:
         x2,y = mdl(A,x,y,mu)
         inf_time = time.time() - st
 
-        
         x_res = x2
         st = time.time()
         # ts1 = eval_feas(A,x_res)
@@ -340,6 +341,20 @@ for ele in exps:
         feas_time = time.time() - st
 
         x_res = x_res.squeeze(-1)
+        
+        
+        if store_sol:
+            ffff = fnm.split('_')[-1].split('.')[0]
+            fout = open(f'/home/lxyang/git/GD-Net/predictions/primal_{ffff}.sol','w')
+            for xz in x_res:
+                st = f'{xz.item()} '
+                fout.write(st)
+            fout.close()
+            fout = open(f'/home/lxyang/git/GD-Net/predictions/dual_{ffff}.sol','w')
+            for xz in y:
+                st = f'{xz.item()} '
+                fout.write(st)
+            fout.close()
 
         loss = loss_func(x_res, x_gt)
         avg_loss += loss.item()
@@ -358,25 +373,27 @@ for ele in exps:
         avg_ratio += (obj2-obj)/obj
         avg_gap += obj2-obj
         
-        model = establish_grb(A,timelim=inf_time+feas_time)
-        grb_obj, grb_time = solve_grb(A,x,y,model)
-        model.Params.TimeLimit = grbtimelim
-        grb_100_obj, grb_100_time = solve_grb_bestobj(A,x,y,model,obj2)
-        print(grb_obj, grb_time)
+            
+        if not store_sol:
+            model = establish_grb(A,timelim=inf_time+feas_time)
+            grb_obj, grb_time = solve_grb(A,x,y,model)
+            model.Params.TimeLimit = grbtimelim
+            grb_100_obj, grb_100_time = solve_grb_bestobj(A,x,y,model,obj2)
+            print(grb_obj, grb_time)
 
-        # ws_obj, ws_time = solve_ws(A,x,y,model)
-        # print(f'Warmstart: {ws_obj},{ws_time}')
-        # quit()
+            # ws_obj, ws_time = solve_ws(A,x,y,model)
+            # print(f'Warmstart: {ws_obj},{ws_time}')
+            # quit()
 
-        avg_grb_sametle += grb_obj
-        avg_grb_beststop_time += grb_100_time
-        
-        
-        print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time}\n  :::GRB:{grb_obj},{grb_100_time}')
-        # print(x)
-        st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   :::TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time} :::GRB:{grb_obj},{grb_100_time}\n'
-        flog.write(st)
-        flog.flush()
+            avg_grb_sametle += grb_obj
+            avg_grb_beststop_time += grb_100_time
+            
+            
+            print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time}\n  :::GRB:{grb_obj},{grb_100_time}')
+            # print(x)
+            st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   :::TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{ori_time} :::GRB:{grb_obj},{grb_100_time}\n'
+            flog.write(st)
+            flog.flush()
         
         sum_obj+=obj
         sum_obj2+=obj2

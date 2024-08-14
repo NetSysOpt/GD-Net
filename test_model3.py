@@ -8,6 +8,9 @@ import time
 from helper import create_pyscipopt_with_x
 import gurobipy as gp
 
+
+store_sol = True
+# store_sol = False
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 with torch.no_grad():
 
@@ -47,7 +50,7 @@ with torch.no_grad():
             if len(buffer)!=0:
                 model.addConstr(gp.quicksum(j[0] * j[1] for j in buffer) <= 1.0)
         else:
-            npy = A.numpy()
+            npy = A.cpu().numpy()
             model.addConstrs((gp.quicksum(vs[j] * npy[i,j] for j in range(n)) <= 1.0) for i in range(m))
         model.update()
         print('Finished building')
@@ -59,7 +62,7 @@ with torch.no_grad():
         model.Params.Presolve = 1
         model.Params.LPWarmStart = 2
         model.Params.LogToConsole = 1
-        model.Params.TimeLimit = 100.0
+        # model.Params.TimeLimit = 100.0
         vs = model.getVars()
         for i,v in enumerate(vs):
             # print(f'{v} {x[i].item()}')
@@ -186,12 +189,12 @@ with torch.no_grad():
     # exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
     # exps.append(["IS_10000","IS_10000","dchannel",5])
     # exps.append(["lp_1000_1000_600.0","lp_1000_1000_600.0","dchannel",5])
-    # exps.append(["lp_5000_5000_20.0","lp_5000_5000_20.0","dchannel",5])
+    exps.append(["lp_5000_5000_20.0","lp_5000_5000_20.0","dchannel",5])
     # exps.append(["lp_10000_10000_5.0","lp_10000_10000_5.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_50_50_600.0","dchannel",5])
     # exps.append(["lp_500_500_600.0","lp_1000_1000_600.0","dchannel",5])
-    exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
-    exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
+    # exps.append(["maxflow_1000_1000_600.0","maxflow_1000_1000_600.0","dchannel",5])
+    # exps.append(["maxflow_600_600_600.0","maxflow_600_600_600.0","dchannel",5])
 
 
     st_rec=[]
@@ -374,15 +377,19 @@ with torch.no_grad():
         avg_grb_sametle = 0.0
         avg_grb_beststop_time = 0.0
 
+        avg_ws_time = 0.0 
+        avg_ws_obj = 0.0
+
         grbtimelim = 200.0
         for indx, fnm in enumerate(flist_test):
+            print(fnm)
             # test
             #  reading
 
             f = gzip.open(f'./data_{ident}/test/{fnm}','rb')
             # A,v,c,sol,dual,obj = pickle.load(f)
             tar = pickle.load(f)
-            Ak = tar[0]
+            Ak = tar[0].float()
             A=Ak.to(device)
             v = tar[1].to(device)
             c = tar[2].to(device)
@@ -442,6 +449,9 @@ with torch.no_grad():
                 x_res = restore_feas_LP(Ak,x2,y).to(device)
                 print('restored feasibility')
             feas_time = time.time() - st
+
+
+
             # for i in range(x_res.shape[0]):
             #     print(x_res[i],sol[i])
             
@@ -452,6 +462,20 @@ with torch.no_grad():
             #     print(ts1[i],ts2[i])
 
             x_res = x_res.squeeze(-1)
+
+            if store_sol:
+                ffff = fnm.split('_')[-1].split('.')[0]
+                fout = open(f'/home/lxyang/git/GD-Net/predictions/primal_{ffff}.sol','w')
+                for xz in x_res:
+                    st = f'{xz.item()} '
+                    fout.write(st)
+                fout.close()
+                fout = open(f'/home/lxyang/git/GD-Net/predictions/dual_{ffff}.sol','w')
+                for xz in y:
+                    st = f'{xz.item()} '
+                    fout.write(st)
+                fout.close()
+
             # if len(tar)>=9:
             #     x_res = x_res/minA
             #     for i in range(x_res.shape[0]):
@@ -479,25 +503,33 @@ with torch.no_grad():
             avg_gap += obj-obj2
             
             
-            model = establish_grb(A,timelim=inf_time+feas_time)
-            grb_obj, grb_time = solve_grb(A,x,y,model)
-            model.Params.TimeLimit = grbtimelim
-            grb_100_obj, grb_100_time = solve_grb_bestobj(A,x,y,model,obj2)
-            print(grb_obj, grb_time)
+            if not store_sol:
+                model = establish_grb(A,timelim=inf_time+feas_time)
+                model.Params.TimeLimit = 3600.0
+                grb_obj, grb_time = solve_grb(A,x,y,model)
+                # model.Params.TimeLimit = grbtimelim
+                # grb_100_obj, grb_100_time = solve_grb_bestobj(A,x,y,model,obj2)
+                print(grb_obj, grb_time)
 
-            # ws_obj, ws_time = solve_ws(A,x,y,model)
-            # print(f'Warmstart: {ws_obj},{ws_time}')
-            # quit()
+                ws_obj, ws_time = solve_ws(A,x_res,y,model)
+                print(f'Warmstart: {ws_obj},{ws_time}')
+                avg_ws_time += ws_time
+                avg_ws_obj += ws_obj
 
-            avg_grb_sametle += grb_obj
-            avg_grb_beststop_time += grb_100_time
-            
-            
-            print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{sol_time}\n  :::GRB:{grb_obj},{grb_100_time}')
-            # print(x)
-            st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   :::TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{sol_time} :::GRB:{grb_obj},{grb_100_time}\n'
-            flog.write(st)
-            flog.flush()
+                print(f'!!   ws time:{ws_time}/{grb_time}')
+                print(f'!!   ws obj:{ws_obj}/{obj}')
+
+                quit()
+
+                avg_grb_sametle += grb_obj
+                avg_grb_beststop_time += grb_100_time
+                
+                
+                print(f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{sol_time}\n  :::GRB:{grb_obj},{grb_100_time}')
+                # print(x)
+                st = f'Instance {fnm}::: ori obj:{obj}    pred obj:{obj2}   :::TIME: inf/feas/total/ori::{inf_time}/{feas_time}/{inf_time+feas_time}/{sol_time} :::GRB:{grb_obj},{grb_100_time}\n'
+                flog.write(st)
+                flog.flush()
             
             sum_obj+=obj
             sum_obj2+=obj2
@@ -570,6 +602,16 @@ with torch.no_grad():
         avg_grb_beststop_time /= len(flist_test)
         print(f'GRB with same obj time::::{avg_grb_beststop_time}')
         st = f'GRB with same obj time::::{avg_grb_beststop_time}\n'
+        flog.write(st)
+
+
+        avg_ws_time /= len(flist_test)
+        print(f'GRB Warmstart time::::{avg_ws_time}')
+        st = f'GRB Warmstart time::::{avg_ws_time}\n'
+        flog.write(st)
+        avg_ws_obj /= len(flist_test)
+        print(f'GRB Warmstart time::::{avg_ws_obj}')
+        st = f'GRB Warmstart time::::{avg_ws_obj}\n'
         flog.write(st)
 
         flog.flush()

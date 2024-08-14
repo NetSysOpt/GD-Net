@@ -10,3 +10,6 @@ ins
 tmp_csv
 *.csv
 tmp_csv_*
+predictions*
+ins*
+*.log
