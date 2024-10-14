@@ -1,6 +1,9 @@
-# GD-Net #
+# On the Power of Small-size Graph Neural Networks for Linear Programming (GD-Net) #
 
-## This is the git repository for GD-Net, a neural network designed to handle end-to-end solution mapping tasks for covering/packing LPs. ##
+## This is the git repository for GD-Net, a neural network designed to handle end-to-end solution mapping tasks for covering/packing LPs. This work has been accepted by NeurIPS 2024 ##
+
+## Introduction ##
+Graph neural networks (GNNs) have recently emerged as powerful tools for addressing complex optimization problems. It has been theoretically demonstrated that GNNs can universally approximate the solution mapping functions of linear programming (LP) problems. However, these theoretical results typically require GNNs to have large parameter sizes. Conversely, empirical experiments have shown that relatively small GNNs can solve LPs effectively, revealing a significant discrepancy between theoretical predictions and practical observations. In this work, we aim to bridge this gap by providing a theoretical foundation for the effectiveness of small-size GNNs. We prove that polylogarithmic-depth, constant-width GNNs are sufficient to solve packing and covering LPs, two widely used classes of LPs. Our proof leverages the capability of GNNs to simulate a variant of the gradient descent algorithm on a carefully selected potential function. Additionally, we introduce a new GNN architecture, termed GD-Net. Experimental results demonstrate that GD-Net significantly outperforms conventional GNN structures while using fewer parameters.
 
 ### Basical manual: ###
 - Use gen*.py to generate instances
@@ -48,3 +51,6 @@
 17. <s>./train_gcn.py</s>
 20. <s>./train_mu.py</s>
   > Training script for training covering/packing/GNNs models.
+
+## Citation ##
+TODO
