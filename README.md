@@ -53,9 +53,11 @@ Graph neural networks (GNNs) have recently emerged as powerful tools for address
   > Training script for training covering/packing/GNNs models.
 
 ## Citation ##
+```text
 @misc{li2024onthepower
    title={On the Power of Small-size Graph Neural Networks for Linear Programming},
    author={Li, Qian and Ding, Tian and Yang, Linxin and Ouyang, Minghui and Shi, Qingjiang and Sun, Ruoyu},
    year={2024},
    journal={NeurIPS},   
 }
+```
